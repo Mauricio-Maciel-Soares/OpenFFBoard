@@ -762,11 +762,6 @@ bool Axis::updateTorque(int32_t* totalTorque) {
 
 		torque -= torqueReduction;
 	}
-	// Torque slew rate limiter
-	if(maxTorqueRateMS > 0){
-		torque = clip<int32_t,int32_t>(torque, metric.previous.torque - maxTorqueRateMS,metric.previous.torque + maxTorqueRateMS);
-	}
-//	if(torque - metric.previous.torque)
 	if(outOfBounds){
 		torque = 0;
 	}
@@ -779,8 +774,30 @@ bool Axis::updateTorque(int32_t* totalTorque) {
 
 	// Torque calculated. Now sending to driver
 	torque = (invertAxis) ? -torque : torque;
-	metric.current.torque = torque;
+
+	// Clamp first so the slew-rate limiter works on the torque that can
+	// actually be sent to the motor driver.
 	torque = clip<int32_t, int32_t>(torque, -power, power);
+
+	// Torque slew rate limiter.
+	// metric.previous.torque is the previous final output torque because
+	// metric.current.torque is stored only after all output limits.
+	// Bypass the limiter for an out-of-bounds safety shutdown.
+	if(maxTorqueRateMS > 0 && !outOfBounds){
+		torque = clip<int32_t,int32_t>(
+			torque,
+			metric.previous.torque - maxTorqueRateMS,
+			metric.previous.torque + maxTorqueRateMS
+		);
+	}
+
+	// Clamp again in case the configured power was reduced since the
+	// previous update. A power reduction must take effect immediately.
+	torque = clip<int32_t, int32_t>(torque, -power, power);
+
+	// Store the torque that is actually going to the driver so the next
+	// slew-rate calculation references the last physical output command.
+	metric.current.torque = torque;
 
 	bool torqueChanged = metric.current.torque != metric.previous.torque;
 
