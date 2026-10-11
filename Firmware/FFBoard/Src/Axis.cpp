@@ -160,6 +160,8 @@ void Axis::registerCommands(){
 	registerCommand("cpr", Axis_commands::cpr, "Reported encoder CPR",CMDFLAG_GET);
 	registerCommand("expo", Axis_commands::expo, "Exponential curve correction (x^(val/exposcale)+1)", CMDFLAG_GET | CMDFLAG_SET);
 	registerCommand("exposcale", Axis_commands::exposcale, "Scaler constant for expo", CMDFLAG_GET);
+	registerCommand("diag", Axis_commands::diag, "FFB diagnostic snapshot (CSV v1)", CMDFLAG_GET);
+	registerCommand("encvel", Axis_commands::encvel, "Use fresh encoder velocity: 0=legacy, 1=prefer estimate (RAM only)", CMDFLAG_GET | CMDFLAG_SET);
 }
 
 /*
@@ -302,6 +304,7 @@ Encoder* Axis::getEncoder(){
  * Called from FFBWheel->Update() via AxesManager->Update()
  */
 void Axis::prepareForUpdate(){
+	workingDiagnostics.recordTime(micros());
 	if (drv == nullptr){
 		pulseErrLed();
 		return;
@@ -640,6 +643,8 @@ void Axis::resetMetrics(float new_pos= 0) { // pos is degrees
 	metric.current.posDegrees = new_pos;
 	std::tie(metric.current.pos_scaled_16b,metric.current.pos_f) = scaleEncValue(new_pos, degreesOfRotation);
 	metric.previous = metric_t();
+	_lastSpeed = 0;
+	encoderVelocityWasUsed = false;
 	// Reset filters
 	speedFilter.calcBiquad();
 	accelFilter.calcBiquad();
@@ -658,9 +663,24 @@ void Axis::updateMetrics(float new_pos) { // pos is degrees
 
 	// compute speed and accel from raw instant speed normalized
 	float currentSpeed = (new_pos - metric.previous.posDegrees) * this->filter_f; // deg/s
+	workingDiagnostics.positionSpeed = currentSpeed;
+	float encoderSpeed = 0;
+	Encoder* encoder = getEncoder();
+	const bool encoderValid = encoder && encoder->getVelocity_f(encoderSpeed);
+	encoderSpeed *= 360.0f * gearRatio.gearRatio * (isInverted() ? -1.0f : 1.0f);
+	const bool encoderUsed = useEncoderVelocity && encoderValid;
+	if (encoderUsed) currentSpeed = encoderSpeed;
+	// Do not differentiate the discontinuity when changing/falling back between sources.
+	if (encoderUsed != encoderVelocityWasUsed) _lastSpeed = currentSpeed;
+	encoderVelocityWasUsed = encoderUsed;
+	workingDiagnostics.encoderSpeed = encoderSpeed;
+	workingDiagnostics.encoderValid = encoderValid;
+	workingDiagnostics.encoderUsed = encoderUsed;
 	metric.current.speed = speedFilter.process(currentSpeed);
 	metric.current.accel = accelFilter.process((currentSpeed - _lastSpeed))* this->filter_f; // deg/s/s
 	_lastSpeed = currentSpeed;
+	workingDiagnostics.speed = metric.current.speed;
+	workingDiagnostics.accel = metric.current.accel;
 
 }
 
@@ -774,10 +794,14 @@ bool Axis::updateTorque(int32_t* totalTorque) {
 
 	// Torque calculated. Now sending to driver
 	torque = (invertAxis) ? -torque : torque;
+	workingDiagnostics.effect = effectTorque;
+	workingDiagnostics.requested = torque;
 
 	// Clamp first so the slew-rate limiter works on the torque that can
 	// actually be sent to the motor driver.
 	torque = clip<int32_t, int32_t>(torque, -power, power);
+	workingDiagnostics.clippedTarget = torque;
+	if (torque != workingDiagnostics.requested) ++workingDiagnostics.clipped;
 
 	// Torque slew rate limiter.
 	// metric.previous.torque is the previous final output torque because
@@ -790,6 +814,7 @@ bool Axis::updateTorque(int32_t* totalTorque) {
 			metric.previous.torque + maxTorqueRateMS
 		);
 	}
+	if (torque != workingDiagnostics.clippedTarget) ++workingDiagnostics.limited;
 
 	// Clamp again in case the configured power was reduced since the
 	// previous update. A power reduction must take effect immediately.
@@ -798,6 +823,11 @@ bool Axis::updateTorque(int32_t* totalTorque) {
 	// Store the torque that is actually going to the driver so the next
 	// slew-rate calculation references the last physical output command.
 	metric.current.torque = torque;
+	workingDiagnostics.output = torque;
+	workingDiagnostics.driverReady = drv->motorReady();
+	cpp_freertos::CriticalSection::Enter();
+	diagnostics = workingDiagnostics;
+	cpp_freertos::CriticalSection::Exit();
 
 	bool torqueChanged = metric.current.torque != metric.previous.torque;
 
@@ -877,6 +907,31 @@ CommandStatus Axis::command(const ParsedCommand& cmd,std::vector<CommandReply>& 
 		{
 			setPower(cmd.val);
 		}
+		break;
+
+	case Axis_commands::diag:
+	{
+		if (cmd.type != CMDtype::get) return CommandStatus::ERR;
+		cpp_freertos::CriticalSection::Enter();
+		const AxisDiagnostics d = diagnostics;
+		cpp_freertos::CriticalSection::Exit();
+		std::string buf(384, '\0');
+		snprintf(buf.data(), buf.size(),
+			"1,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%ld,%ld,%ld,%ld,%.6g,%.6g,%.6g,%.6g,%u,%u,%u",
+			(unsigned long)d.sequence, (unsigned long)d.timeUs, (unsigned long)d.dtUs,
+			(unsigned long)(d.minDtUs == UINT32_MAX ? 0 : d.minDtUs), (unsigned long)d.maxDtUs,
+			(unsigned long)d.clipped, (unsigned long)d.limited,
+			(long)d.effect, (long)d.requested, (long)d.clippedTarget, (long)d.output,
+			(double)d.positionSpeed, (double)d.encoderSpeed, (double)d.speed, (double)d.accel,
+			(unsigned)d.encoderValid, (unsigned)d.encoderUsed, (unsigned)d.driverReady);
+		buf.resize(strlen(buf.c_str()));
+		replies.emplace_back(buf);
+		break;
+	}
+	case Axis_commands::encvel:
+		if (cmd.type == CMDtype::get) replies.emplace_back(useEncoderVelocity ? 1 : 0);
+		else if (cmd.type == CMDtype::set && (cmd.val == 0 || cmd.val == 1)) useEncoderVelocity = cmd.val != 0;
+		else return CommandStatus::ERR;
 		break;
 
 	case Axis_commands::degrees:
