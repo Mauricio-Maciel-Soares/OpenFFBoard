@@ -304,7 +304,7 @@ Encoder* Axis::getEncoder(){
  * Called from FFBWheel->Update() via AxesManager->Update()
  */
 void Axis::prepareForUpdate(){
-	workingDiagnostics.recordTime(micros());
+	workingDiagnostics.recordTime(diagnosticMicros());
 	if (drv == nullptr){
 		pulseErrLed();
 		return;

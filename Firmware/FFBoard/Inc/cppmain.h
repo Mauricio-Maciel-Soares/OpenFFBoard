@@ -61,6 +61,7 @@ T clip(T v, C l, C h)
 }
 
 uint32_t micros(); // Returns microsecond scaled time
+uint32_t diagnosticMicros(); // Coherent task-context timestamp for passive diagnostics
 unsigned long getRunTimeCounterValue(void); // RTOS
 
 void refreshWatchdog(); // Refreshes the watchdog

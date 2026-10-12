@@ -4,6 +4,21 @@
 #include <cmath>
 #include <cstring>
 
+// Caller prevents the HAL tick ISR from changing tick/UIF during this snapshot.
+// Hardware keeps counting: retry if an overflow occurs between register reads.
+template<class ReadTick, class ReadCounter, class ReadPending>
+uint32_t readDiagnosticMicros(ReadTick tick, ReadCounter counter, ReadPending pending) {
+    const uint32_t ms = tick();
+    bool before, after;
+    uint32_t us;
+    do {
+        before = pending();
+        us = counter();
+        after = pending();
+    } while (before != after);
+    return (ms + (after ? 1U : 0U)) * 1000U + us;
+}
+
 // Read-only diagnostics. Never used to scale, limit or time the torque output.
 struct AxisDiagnostics {
     uint32_t sequence = 0;
@@ -24,14 +39,16 @@ struct AxisDiagnostics {
     bool encoderValid = false;
     bool encoderUsed = false;
     bool driverReady = false;
+    bool timeInitialized = false;
 
     void recordTime(uint32_t now) {
-        if (sequence != 0) {
+        if (timeInitialized) {
             dtUs = now - timeUs; // unsigned subtraction also handles timer rollover
             if (dtUs < minDtUs) minDtUs = dtUs;
             if (dtUs > maxDtUs) maxDtUs = dtUs;
         }
         timeUs = now;
+        timeInitialized = true;
         ++sequence;
     }
 };

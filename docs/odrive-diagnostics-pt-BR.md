@@ -88,9 +88,18 @@ O contador `clip_count` registra alterações no primeiro clipping de saída (n�
 interno do jogo). `slew_count` registra atuação do slew, antes do segundo clipping de proteção.
 Os contadores acumulam desde a inicialização; o script calcula eventos/s por diferenças.
 `loop_hz` usa a diferença de sequências e timestamps de duas consultas; não é a taxa de
-pacotes HID. `dt_us/min_dt_us/max_dt_us` usam a base `micros()` existente no firmware e
+pacotes HID. `dt_us/min_dt_us/max_dt_us` usam uma leitura coerente do tick HAL e do
+timer de microssegundos (`diagnosticMicros()`, somente para diagnóstico) e
 medem intervalos entre `prepareForUpdate()`, não latência USB → torque físico. Pausas e
 mudanças de frequência entram nos mínimos/máximos acumulados desde o boot.
+
+A leitura compensa uma virada do timer com interrupção ainda pendente e repete
+o snapshot se o contador virar entre as leituras dos registradores. Isso evita
+que uma leitura temporal inconsistente contamine os extremos com valores como
+4294967295. O relógio dos efeitos e o rate limiter permanecem inalterados.
+Não há descarte de intervalos longos nem substituição por valores nominais.
+Após instalar a correção, `axis.0.diag?` mostra extremos medidos a partir do novo
+boot; eles não precisam ser 1000 exatos, pois incluem pausas e jitter.
 
 Os snapshots do eixo e da ODrive são **assíncronos**. Iq e encoder têm suas próprias idades
 e sequências; sequência zero significa que ainda não houve amostra. O script deixa torque
