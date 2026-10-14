@@ -18,11 +18,12 @@ on:
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   Diagnostics_tests:
-    name: Diagnostics host regressions
+    name: Diagnostics and HID PID host regressions
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: python3 tests/test_diagnostics.py
+      - run: python3 tests/test_hid_pid.py
   # Build firmware
   Build_firmware:
     name: Build firmware

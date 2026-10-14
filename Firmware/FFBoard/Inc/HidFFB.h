@@ -47,6 +47,8 @@ private:
 	std::array<FFB_Effect,EffectsCalculator::max_effects>& effects; // Must be passed in constructor
 	void new_effect(FFB_CreateNewEffect_Feature_Data_t* effect);
 	void free_effect(uint16_t id);
+	void updatePoolAvailable();
+	void updateStatusReport();
 	void ffb_control(uint8_t cmd);
 	void set_effect(FFB_SetEffect_t* effect);
 	void set_condition(FFB_SetCondition_Data_t* cond);
@@ -60,7 +62,9 @@ private:
 	void set_filters(FFB_Effect* effect);
 
 	uint8_t directionEnableMask; // Has to be adjusted if bit is not last bit after axis enable bits
-	uint16_t used_effects = 0;
+	bool hostDisabled = false;
+	bool paused = false;
+	uint32_t pausedAt = 0;
 	bool ffb_active = false;
 	FFB_BlockLoad_Feature_Data_t blockLoad_report;
 	FFB_PIDPool_Feature_Data_t pool_report;
