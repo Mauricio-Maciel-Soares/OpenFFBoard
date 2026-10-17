@@ -24,6 +24,7 @@
 #include "ExtiHandler.h"
 #include "EffectsCalculator.h"
 #include "FFBDiagnostics.h"
+#include "TorqueSlewLimiter.h"
 
 #define INTERNAL_AXIS_DAMPER_SCALER 0.7
 #define INTERNAL_AXIS_FRICTION_SCALER 0.7
@@ -221,7 +222,11 @@ private:
 	// Limiters
 	uint16_t maxSpeedDegS  = 0; // Set to non zero to enable. example 1000. 8b * 10?
 	//float	 maxAccelDegSS = 0;
-	uint32_t maxTorqueRateMS = 0; // 8b * 128?
+	uint32_t maxTorqueRateMS = 0; // counts/ms; 0 disables the slew limiter
+	TorqueSlewLimiter torqueSlew;
+	int32_t lastTorqueCommand = 0; // last value passed to MotorDriver::turn
+	bool torqueCommandValid = false;
+	void resetTorqueLimiter();
 	float speedLimiterP = AXIS_SPEEDLIMITER_P;
 	float speedLimiterI = AXIS_SPEEDLIMITER_I;
 

@@ -137,8 +137,8 @@ uint32_t micros(){
 
 
 // Task context only. Keep the HAL tick and its hardware overflow flag coherent.
-// Do not change the clock used by effects or the motor command path.
-uint32_t diagnosticMicros() {
+// Used for slew timing and diagnostics; existing effect clocks stay unchanged.
+uint32_t coherentMicros() {
 #ifdef TIM_MICROS_HALTICK
     extern TIM_HandleTypeDef TIM_MICROS_HALTICK;
     const uint32_t mask = __get_PRIMASK();
@@ -152,6 +152,10 @@ uint32_t diagnosticMicros() {
 #else
     return micros();
 #endif
+}
+
+uint32_t diagnosticMicros() {
+    return coherentMicros();
 }
 
 void* malloc(size_t size)
