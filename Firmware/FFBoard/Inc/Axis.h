@@ -23,6 +23,8 @@
 #include "ClassChooser.h"
 #include "ExtiHandler.h"
 #include "EffectsCalculator.h"
+#include "FFBDiagnostics.h"
+#include "TorqueSlewLimiter.h"
 
 #define INTERNAL_AXIS_DAMPER_SCALER 0.7
 #define INTERNAL_AXIS_FRICTION_SCALER 0.7
@@ -94,7 +96,7 @@ enum class Axis_commands : uint32_t{
 	power=0x00,degrees=0x01,esgain,zeroenc,invert,idlespring,axisdamper,enctype,drvtype,
 	pos,maxspeed,maxtorquerate,fxratio,curtorque,curpos,curspd,curaccel,reductionScaler,
 	filterSpeed, filterAccel, filterProfileId,cpr,axisfriction,axisinertia,
-	expo,exposcale
+	expo,exposcale,diag,encvel
 };
 
 class Axis : public PersistentStorage, public CommandHandler, public ErrorHandler
@@ -220,7 +222,11 @@ private:
 	// Limiters
 	uint16_t maxSpeedDegS  = 0; // Set to non zero to enable. example 1000. 8b * 10?
 	//float	 maxAccelDegSS = 0;
-	uint32_t maxTorqueRateMS = 0; // 8b * 128?
+	uint32_t maxTorqueRateMS = 0; // counts/ms; 0 disables the slew limiter
+	TorqueSlewLimiter torqueSlew;
+	int32_t lastTorqueCommand = 0; // last value passed to MotorDriver::turn
+	bool torqueCommandValid = false;
+	void resetTorqueLimiter();
 	float speedLimiterP = AXIS_SPEEDLIMITER_P;
 	float speedLimiterI = AXIS_SPEEDLIMITER_I;
 
@@ -239,6 +245,10 @@ private:
 	// Merge normalized
 	axis_metric_t metric;
 	float _lastSpeed = 0;
+	bool useEncoderVelocity = false; // runtime-only, opt in after A/B validation
+	bool encoderVelocityWasUsed = false;
+	AxisDiagnostics diagnostics; // published at the end of the torque calculation
+	AxisDiagnostics workingDiagnostics;
 	int32_t effectTorque = 0;
 	int32_t axisEffectTorque = 0;
 	uint8_t fx_ratio_i = 204; // Reduce effects to a certain ratio of the total power to have a margin for the endstop. 80% = 204

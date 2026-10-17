@@ -310,16 +310,28 @@ void tud_cdc_tx_complete_cb(uint8_t itf){
  * HID Out and Set Feature
  */
 void tud_hid_set_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t report_type, uint8_t const* buffer, uint16_t bufsize){
-	if((report_type == HID_REPORT_TYPE_INVALID || report_type == HID_REPORT_TYPE_OUTPUT) && report_id == 0){
-		report_id = *buffer;
+	if(buffer == nullptr || bufsize == 0) return;
+	const bool output = report_type == HID_REPORT_TYPE_INVALID || report_type == HID_REPORT_TYPE_OUTPUT;
+	uint8_t normalized[CFG_TUD_HID_EP_BUFSIZE + 1];
+	if(output){
+		if(report_id == 0){
+			// Interrupt OUT includes its ID. TinyUSB strips it for control SET_REPORT.
+			report_id = buffer[0];
+		}else{
+			if(bufsize > CFG_TUD_HID_EP_BUFSIZE) return;
+			normalized[0] = report_id;
+			memcpy(normalized + 1, buffer, bufsize);
+			buffer = normalized;
+			++bufsize;
+		}
 	}
 
-	if(UsbHidHandler::globalHidHandler!=nullptr)
-		UsbHidHandler::globalHidHandler->hidOut(report_id,report_type,buffer,bufsize);
+	if(UsbHidHandler::globalHidHandler != nullptr)
+		UsbHidHandler::globalHidHandler->hidOut(report_id, report_type, buffer, bufsize);
 
-	if(report_id == HID_ID_HIDCMD){
+	if(output && report_id == HID_ID_HIDCMD && bufsize >= sizeof(HID_CMD_Data_t)){
 		if(HID_CommandInterface::globalInterface != nullptr)
-			HID_CommandInterface::globalInterface->hidCmdCallback((HID_CMD_Data_t*)(buffer));
+			HID_CommandInterface::globalInterface->hidCmdCallback((HID_CMD_Data_t*)buffer);
 	}
 
 
