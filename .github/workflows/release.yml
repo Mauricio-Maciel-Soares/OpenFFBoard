@@ -27,7 +27,7 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           submodules: 'true'
 
@@ -39,7 +39,7 @@ jobs:
           path: '${{ github.workspace }}/Configurator'
           python-version: '${{ matrix.conf.pyver }}'
         
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: OpenFFBoard-Configurator-${{ matrix.conf.os }}-py${{ matrix.conf.pyver }}
           path: ${{ steps.build_c.outputs.distpath }}
@@ -52,12 +52,12 @@ jobs:
     runs-on: ubuntu-latest
     #if: github.event.base_ref == 'refs/heads/master'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
             submodules: 'true'
 
       # Download artifacts for release
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8.0.2
         with:
           path: etc/usr/artifacts/
 

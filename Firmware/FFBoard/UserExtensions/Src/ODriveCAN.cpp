@@ -7,6 +7,7 @@
 #include "target_constants.h"
 #ifdef ODRIVE
 #include <ODriveCAN.h>
+#include "critical.hpp"
 
 bool ODriveCAN1::inUse = false;
 ClassIdentifier ODriveCAN1::info = {
@@ -87,6 +88,7 @@ void ODriveCAN::registerCommands(){
 	registerCommand("anticogging", ODriveCAN_commands::anticogging, "Set 1 to start anticogging calibration",CMDFLAG_SET);
 	registerCommand("connected", ODriveCAN_commands::connected, "ODrive connection state",CMDFLAG_GET);
 	registerCommand("storepos", ODriveCAN_commands::storepos, "Store encoder offset",CMDFLAG_GET | CMDFLAG_SET);
+	registerCommand("diag", ODriveCAN_commands::diag, "Passive CAN telemetry (CSV v1)",CMDFLAG_GET);
 }
 
 void ODriveCAN::restoreFlash(){
@@ -260,6 +262,14 @@ float ODriveCAN::getPos_f(){
 bool ODriveCAN::motorReady(){
 	return state == ODriveLocalState::RUNNING && (odriveCurrentState == ODriveState::AXIS_STATE_CLOSED_LOOP_CONTROL);
 }
+
+bool ODriveCAN::getVelocity_f(float& velocity){
+	cpp_freertos::CriticalSection::Enter();
+	const bool fresh = telemetry.velocityFresh(HAL_GetTick());
+	velocity = fresh ? telemetry.velocity : 0.0f;
+	cpp_freertos::CriticalSection::Exit();
+	return fresh;
+}
 int32_t ODriveCAN::getPos(){
 	return getCpr() * getPos_f();
 }
@@ -269,9 +279,16 @@ uint32_t ODriveCAN::getCpr(){
 	return 0xffff;
 }
 void ODriveCAN::setTorque(float torque){
-	//if(motorReady()){
-		sendMsg<float>(0x0E,torque);
-	//}
+	const bool queued = sendMsg<float>(0x0E,torque);
+	cpp_freertos::CriticalSection::Enter();
+	if (queued) {
+		telemetry.queuedTorque = torque;
+		telemetry.torqueTimeMs = HAL_GetTick();
+		++telemetry.txSequence;
+	} else {
+		++telemetry.txErrors;
+	}
+	cpp_freertos::CriticalSection::Exit();
 }
 
 EncoderType ODriveCAN::getEncoderType(){
@@ -306,6 +323,27 @@ void ODriveCAN::startAnticogging(){
 CommandStatus ODriveCAN::command(const ParsedCommand& cmd,std::vector<CommandReply>& replies){
 
 	switch(static_cast<ODriveCAN_commands>(cmd.cmdId)){
+	case ODriveCAN_commands::diag:
+	{
+		if (cmd.type != CMDtype::get) return CommandStatus::ERR;
+		cpp_freertos::CriticalSection::Enter();
+		const ODriveTelemetry d = telemetry;
+		const uint32_t now = HAL_GetTick();
+		cpp_freertos::CriticalSection::Exit();
+		std::string buf(320, '\0');
+		snprintf(buf.data(), buf.size(), "1,%lu,%lu,%lu,%.6g,%.6g,%lu,%lu,%.6g,%lu,%lu,%.6g,%lu",
+			(unsigned long)now, (unsigned long)d.iqSequence,
+			(unsigned long)(d.iqSequence ? now - d.iqTimeMs : UINT32_MAX),
+			(double)d.iqSetpoint, (double)d.iqMeasured,
+			(unsigned long)d.encoderSequence,
+			(unsigned long)(d.encoderSequence ? now - d.encoderTimeMs : UINT32_MAX),
+			(double)d.velocity, (unsigned long)d.txSequence,
+			(unsigned long)(d.txSequence ? now - d.torqueTimeMs : UINT32_MAX),
+			(double)d.queuedTorque, (unsigned long)d.txErrors);
+		buf.resize(strlen(buf.c_str()));
+		replies.emplace_back(buf);
+		break;
+	}
 	case ODriveCAN_commands::vbus:
 		if(cmd.type == CMDtype::get){
 			replies.emplace_back(lastVoltage*1000);
@@ -323,10 +361,18 @@ CommandStatus ODriveCAN::command(const ParsedCommand& cmd,std::vector<CommandRep
 		break;
 
 	case ODriveCAN_commands::canid:
+	{
+		const int8_t oldNodeId = nodeId;
 		handleGetSet(cmd, replies, this->nodeId);
+		if (oldNodeId != nodeId) {
+			cpp_freertos::CriticalSection::Enter();
+			telemetry = ODriveTelemetry{};
+			cpp_freertos::CriticalSection::Exit();
+		}
 		port->removeCanFilter(filterId);
 		setCanFilter();
 		break;
+	}
 	case ODriveCAN_commands::state:
 		if(cmd.type == CMDtype::get){
 			replies.emplace_back((uint32_t)odriveCurrentState);
@@ -388,10 +434,11 @@ void ODriveCAN::canErrorCallback(CANPort* port,uint32_t errcode){
 
 void ODriveCAN::canRxPendCallback(CANPort* port,CAN_rx_msg& msg){
 	uint16_t node = (msg.header.id >> 5) & 0x3F;
-	if(node != this->nodeId){
+	if(port != this->port || msg.header.extId || msg.header.rtr || msg.header.length != 8 || node != this->nodeId){
 		return;
 	}
-	uint64_t msg_int = *reinterpret_cast<uint64_t*>(msg.data);
+	uint64_t msg_int;
+	memcpy(&msg_int, msg.data, sizeof(msg_int));
 	uint8_t cmd = msg.header.id & 0x1F;
 
 	lastCanMessage = HAL_GetTick();
@@ -414,14 +461,21 @@ void ODriveCAN::canRxPendCallback(CANPort* port,CAN_rx_msg& msg){
 	}
 	case 0x09: // encoder pos float
 	{
-		uint64_t tp = msg_int & 0xffffffff;
-		memcpy(&lastPos,&tp,sizeof(float));
-
-		uint64_t ts = (msg_int >> 32) & 0xffffffff;
-		memcpy(&lastSpeed,&ts,sizeof(float));
+		if (!decodeODrivePair(msg.data, msg.header.length, msg.header.rtr, lastPos, lastSpeed)) break;
 		lastPosTime = HAL_GetTick();
 		posWaiting = false;
+		telemetry.velocity = lastSpeed;
+		telemetry.encoderTimeMs = lastPosTime;
+		++telemetry.encoderSequence;
 
+		break;
+	}
+	case 0x14: // Get_Iq: Iq_setpoint [A], Iq_measured [A], ODrive 0.5.6
+	{
+		if (!decodeODrivePair(msg.data, msg.header.length, msg.header.rtr,
+			telemetry.iqSetpoint, telemetry.iqMeasured)) break;
+		telemetry.iqTimeMs = HAL_GetTick();
+		++telemetry.iqSequence;
 		break;
 	}
 
