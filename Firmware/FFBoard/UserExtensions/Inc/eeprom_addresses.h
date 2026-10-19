@@ -13,11 +13,11 @@
 
 #include "main.h"
 // Change this to the amount of currently registered variables
-#define NB_OF_VAR 164
+#define NB_OF_VAR 185
 extern const uint16_t VirtAddVarTab[NB_OF_VAR];
 
 // Amount of variables in exportable list
-#define NB_EXPORTABLE_ADR 149
+#define NB_EXPORTABLE_ADR 170
 extern const uint16_t exportableFlashAddresses[NB_EXPORTABLE_ADR];
 
 
@@ -104,6 +104,13 @@ uint16_t EE_ReadVariable(uint16_t VirtAddress, uint16_t* Data) will return 1 if 
 #define ADR_AXIS1_ENC_RATIO 0x30A // Accel filter Lowpass
 #define ADR_AXIS1_EFFECTS2 0x30B // 0-7 Friction, 8-15 Inertia
 #define ADR_AXIS1_POSTPROCESS1 0x30C // 0-7 expo curve
+#define ADR_AXIS1_TUNING_A_LO 0x30D // Torque rate low word bank A
+#define ADR_AXIS1_TUNING_A_HI 0x30E // Torque rate high word bank A
+#define ADR_AXIS1_TUNING_A_FLAGS 0x30F // Tagged encvel bank A
+#define ADR_AXIS1_TUNING_B_LO 0x310 // Torque rate low word bank B
+#define ADR_AXIS1_TUNING_B_HI 0x311 // Torque rate high word bank B
+#define ADR_AXIS1_TUNING_B_FLAGS 0x312 // Tagged encvel bank B
+#define ADR_AXIS1_TUNING_SELECT 0x313 // Committed tuning bank selector
 // TMC1
 #define ADR_TMC1_MOTCONF 0x320 // 0-2: MotType 3-5: PhiE source 6-15: Poles
 #define ADR_TMC1_CPR 0x321
@@ -130,6 +137,13 @@ uint16_t EE_ReadVariable(uint16_t VirtAddress, uint16_t* Data) will return 1 if 
 #define ADR_AXIS2_ENC_RATIO 0x34A // Store the encoder ratio for an axis
 #define ADR_AXIS2_EFFECTS2 0x34B // 0-7 Friction, 8-15 Inertia
 #define ADR_AXIS2_POSTPROCESS1 0x34C // 0-7 expo curve
+#define ADR_AXIS2_TUNING_A_LO 0x34D // Torque rate low word bank A
+#define ADR_AXIS2_TUNING_A_HI 0x34E // Torque rate high word bank A
+#define ADR_AXIS2_TUNING_A_FLAGS 0x34F // Tagged encvel bank A
+#define ADR_AXIS2_TUNING_B_LO 0x350 // Torque rate low word bank B
+#define ADR_AXIS2_TUNING_B_HI 0x351 // Torque rate high word bank B
+#define ADR_AXIS2_TUNING_B_FLAGS 0x352 // Tagged encvel bank B
+#define ADR_AXIS2_TUNING_SELECT 0x353 // Committed tuning bank selector
 // TMC2
 #define ADR_TMC2_MOTCONF 0x360 // 0-2: MotType 3-5: PhiE source 6-15: Poles
 #define ADR_TMC2_CPR 0x361
@@ -156,6 +170,13 @@ uint16_t EE_ReadVariable(uint16_t VirtAddress, uint16_t* Data) will return 1 if 
 #define ADR_AXIS3_ENC_RATIO 0x38A // Store the encoder ratio for an axis
 #define ADR_AXIS3_EFFECTS2 0x38B // 0-7 Friction, 8-15 Inertia
 #define ADR_AXIS3_POSTPROCESS1 0x38C // 0-7 expo curve
+#define ADR_AXIS3_TUNING_A_LO 0x38D // Torque rate low word bank A
+#define ADR_AXIS3_TUNING_A_HI 0x38E // Torque rate high word bank A
+#define ADR_AXIS3_TUNING_A_FLAGS 0x38F // Tagged encvel bank A
+#define ADR_AXIS3_TUNING_B_LO 0x390 // Torque rate low word bank B
+#define ADR_AXIS3_TUNING_B_HI 0x391 // Torque rate high word bank B
+#define ADR_AXIS3_TUNING_B_FLAGS 0x392 // Tagged encvel bank B
+#define ADR_AXIS3_TUNING_SELECT 0x393 // Committed tuning bank selector
 // TMC3
 #define ADR_TMC3_MOTCONF 0x3A0 // 0-2: MotType 3-5: PhiE source 6-15: Poles
 #define ADR_TMC3_CPR 0x3A1

@@ -62,6 +62,7 @@ struct AxisFlashAddrs
 
 	uint16_t speedAccelFilter = ADR_AXIS1_SPEEDACCEL_FILTER;
 	uint16_t postprocess1 = ADR_AXIS1_POSTPROCESS1;
+	uint16_t tuning = ADR_AXIS1_TUNING_A_LO;
 };
 
 struct AxisConfig
@@ -227,6 +228,10 @@ private:
 	int32_t lastTorqueCommand = 0; // last value passed to MotorDriver::turn
 	bool torqueCommandValid = false;
 	void resetTorqueLimiter();
+	void restoreAxisTuningSettings();
+	bool saveAxisTuningSettings(uint32_t rate, bool encoderVelocity);
+	CommandStatus setEncoderVelocity(int64_t value);
+	CommandStatus setMaxTorqueRate(int64_t value);
 	float speedLimiterP = AXIS_SPEEDLIMITER_P;
 	float speedLimiterI = AXIS_SPEEDLIMITER_I;
 
@@ -245,7 +250,7 @@ private:
 	// Merge normalized
 	axis_metric_t metric;
 	float _lastSpeed = 0;
-	bool useEncoderVelocity = false; // runtime-only, opt in after A/B validation
+	bool useEncoderVelocity = false; // persisted on SET; default remains opt-in
 	bool encoderVelocityWasUsed = false;
 	AxisDiagnostics diagnostics; // published at the end of the torque calculation
 	AxisDiagnostics workingDiagnostics;

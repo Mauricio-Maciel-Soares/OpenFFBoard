@@ -6,6 +6,7 @@
  */
 
 #include "Axis.h"
+#include "AxisSettingsStorage.h"
 #include "voltagesense.h"
 #include "TMC4671.h"
 #include "MotorPWM.h"
@@ -96,7 +97,7 @@ Axis::Axis(char axis,volatile Control_t* control) :CommandHandler("axis", CLSID_
 		setInstance(0);
 		this->flashAddrs = AxisFlashAddrs({ADR_AXIS1_CONFIG, ADR_AXIS1_MAX_SPEED, ADR_AXIS1_MAX_ACCEL,
 										   ADR_AXIS1_ENDSTOP, ADR_AXIS1_POWER, ADR_AXIS1_DEGREES,ADR_AXIS1_EFFECTS1,ADR_AXIS1_EFFECTS2,ADR_AXIS1_ENC_RATIO,
-										   ADR_AXIS1_SPEEDACCEL_FILTER,ADR_AXIS1_POSTPROCESS1});
+										   ADR_AXIS1_SPEEDACCEL_FILTER,ADR_AXIS1_POSTPROCESS1,ADR_AXIS1_TUNING_A_LO});
 	}
 	else if (axis == 'Y')
 	{
@@ -104,14 +105,14 @@ Axis::Axis(char axis,volatile Control_t* control) :CommandHandler("axis", CLSID_
 		setInstance(1);
 		this->flashAddrs = AxisFlashAddrs({ADR_AXIS2_CONFIG, ADR_AXIS2_MAX_SPEED, ADR_AXIS2_MAX_ACCEL,
 										   ADR_AXIS2_ENDSTOP, ADR_AXIS2_POWER, ADR_AXIS2_DEGREES,ADR_AXIS2_EFFECTS1,ADR_AXIS2_EFFECTS2, ADR_AXIS2_ENC_RATIO,
-										   ADR_AXIS2_SPEEDACCEL_FILTER,ADR_AXIS2_POSTPROCESS1});
+										   ADR_AXIS2_SPEEDACCEL_FILTER,ADR_AXIS2_POSTPROCESS1,ADR_AXIS2_TUNING_A_LO});
 	}
 	else if (axis == 'Z')
 	{
 		setInstance(2);
 		this->flashAddrs = AxisFlashAddrs({ADR_AXIS3_CONFIG, ADR_AXIS3_MAX_SPEED, ADR_AXIS3_MAX_ACCEL,
 										   ADR_AXIS3_ENDSTOP, ADR_AXIS3_POWER, ADR_AXIS3_DEGREES,ADR_AXIS3_EFFECTS1,ADR_AXIS3_EFFECTS2,ADR_AXIS3_ENC_RATIO,
-										   ADR_AXIS3_SPEEDACCEL_FILTER,ADR_AXIS3_POSTPROCESS1});
+										   ADR_AXIS3_SPEEDACCEL_FILTER,ADR_AXIS3_POSTPROCESS1,ADR_AXIS3_TUNING_A_LO});
 	}
 
 
@@ -145,7 +146,7 @@ void Axis::registerCommands(){
 	registerCommand("drvtype", Axis_commands::drvtype, "Motor driver type get/set/list",CMDFLAG_GET | CMDFLAG_SET | CMDFLAG_INFOSTRING);
 	registerCommand("pos", Axis_commands::pos, "Encoder position",CMDFLAG_GET);
 	registerCommand("maxspeed", Axis_commands::maxspeed, "Speed limit in deg/s",CMDFLAG_GET | CMDFLAG_SET);
-	registerCommand("maxtorquerate", Axis_commands::maxtorquerate, "Torque rate limit in counts/ms (real dt; 0 disables)",CMDFLAG_GET | CMDFLAG_SET);
+	registerCommand("maxtorquerate", Axis_commands::maxtorquerate, "Torque rate limit in counts/ms (real dt; 0 disables; auto-saved)",CMDFLAG_GET | CMDFLAG_SET);
 	registerCommand("fxratio", Axis_commands::fxratio, "Effect ratio. Reduces game effects excluding endstop. 255=100%",CMDFLAG_GET | CMDFLAG_SET);
 	registerCommand("curtorque", Axis_commands::curtorque, "Axis torque",CMDFLAG_GET);
 	registerCommand("curpos", Axis_commands::curpos, "Axis position",CMDFLAG_GET);
@@ -161,7 +162,7 @@ void Axis::registerCommands(){
 	registerCommand("expo", Axis_commands::expo, "Exponential curve correction (x^(val/exposcale)+1)", CMDFLAG_GET | CMDFLAG_SET);
 	registerCommand("exposcale", Axis_commands::exposcale, "Scaler constant for expo", CMDFLAG_GET);
 	registerCommand("diag", Axis_commands::diag, "FFB diagnostic snapshot (CSV v1)", CMDFLAG_GET);
-	registerCommand("encvel", Axis_commands::encvel, "Use fresh encoder velocity: 0=legacy, 1=prefer estimate (RAM only)", CMDFLAG_GET | CMDFLAG_SET);
+	registerCommand("encvel", Axis_commands::encvel, "Use fresh encoder velocity: 0=legacy, 1=prefer estimate (auto-saved)", CMDFLAG_GET | CMDFLAG_SET);
 }
 
 /*
@@ -185,12 +186,7 @@ void Axis::restoreFlash(){
 	}else{
 		pulseErrLed();
 	}
-//
-//	if (Flash_Read(flashAddrs.maxAccel, &value)){
-//		this->maxTorqueRateMS = value;
-//	}else{
-//		pulseErrLed();
-//	}
+	restoreAxisTuningSettings();
 
 
 	uint16_t esval, power;
@@ -251,7 +247,7 @@ void Axis::saveFlash(){
 	//NormalizedAxis::saveFlash();
 	Flash_Write(flashAddrs.config, Axis::encodeConfToInt(this->conf));
 	Flash_Write(flashAddrs.maxSpeed, this->maxSpeedDegS);
-//	Flash_Write(flashAddrs.maxAccel, (uint16_t)(this->maxTorqueRateMS));
+	if (!saveAxisTuningSettings(maxTorqueRateMS, useEncoderVelocity)) pulseErrLed();
 
 	Flash_Write(flashAddrs.endstop, fx_ratio_i | (endstopStrength << 8));
 	Flash_Write(flashAddrs.power, power);
@@ -267,6 +263,38 @@ void Axis::saveFlash(){
 	// Postprocessing
 	Flash_Write(flashAddrs.postprocess1, expoValInt & 0xff);
 
+}
+
+
+void Axis::restoreAxisTuningSettings(){
+	AxisSavedSettings saved; // Missing/legacy storage keeps the opt-in defaults.
+	AxisSettingsStorage::load(flashAddrs.tuning, saved);
+	maxTorqueRateMS = saved.maxTorqueRate;
+	useEncoderVelocity = saved.encoderVelocity;
+	torqueSlew.reset();
+}
+
+bool Axis::saveAxisTuningSettings(uint32_t rate, bool encoderVelocity){
+	return AxisSettingsStorage::save(flashAddrs.tuning, {rate, encoderVelocity});
+}
+
+CommandStatus Axis::setEncoderVelocity(int64_t value){
+	if (value != 0 && value != 1) return CommandStatus::ERR;
+	const bool enabled = value != 0;
+	if (!saveAxisTuningSettings(maxTorqueRateMS, enabled)) return CommandStatus::ERR;
+	useEncoderVelocity = enabled;
+	return CommandStatus::OK;
+}
+
+CommandStatus Axis::setMaxTorqueRate(int64_t value){
+	if (value < 0 || uint64_t(value) > UINT32_MAX) return CommandStatus::ERR;
+	const uint32_t rate = static_cast<uint32_t>(value);
+	if (!saveAxisTuningSettings(rate, useEncoderVelocity)) return CommandStatus::ERR;
+	if (maxTorqueRateMS != rate){
+		maxTorqueRateMS = rate;
+		torqueSlew.reset();
+	}
+	return CommandStatus::OK;
 }
 
 
@@ -953,7 +981,7 @@ CommandStatus Axis::command(const ParsedCommand& cmd,std::vector<CommandReply>& 
 	}
 	case Axis_commands::encvel:
 		if (cmd.type == CMDtype::get) replies.emplace_back(useEncoderVelocity ? 1 : 0);
-		else if (cmd.type == CMDtype::set && (cmd.val == 0 || cmd.val == 1)) useEncoderVelocity = cmd.val != 0;
+		else if (cmd.type == CMDtype::set) return setEncoderVelocity(cmd.val);
 		else return CommandStatus::ERR;
 		break;
 
@@ -1075,9 +1103,9 @@ CommandStatus Axis::command(const ParsedCommand& cmd,std::vector<CommandReply>& 
 
 	case Axis_commands::maxtorquerate:
 	{
-		const uint32_t oldRate = maxTorqueRateMS;
-		handleGetSet(cmd, replies, this->maxTorqueRateMS);
-		if (maxTorqueRateMS != oldRate) torqueSlew.reset();
+		if (cmd.type == CMDtype::get || cmd.type == CMDtype::getat) replies.emplace_back(maxTorqueRateMS);
+		else if (cmd.type == CMDtype::set || cmd.type == CMDtype::setat) return setMaxTorqueRate(cmd.val);
+		else return CommandStatus::ERR;
 		break;
 	}
 

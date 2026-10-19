@@ -9,20 +9,23 @@ Alvo do usuário: OpenFFBoard F407VG + ODrive 3.6 FW 0.5.6 + CAN 1 Mbps + servo 
   alvo após clipping, saída após rate limiter, contadores de clipping/slew e intervalos do loop.
 - `odrv.0.diag?`: Iq solicitado/medido, velocidade do encoder, idade e sequência de cada
   amostra, último torque aceito pela fila CAN e falhas ao enfileirar esse torque.
-- `axis.0.encvel=1`: opção em RAM para usar a velocidade estimada da ODrive, já recebida
+- `axis.0.encvel=1`: opção para usar a velocidade estimada da ODrive, já recebida
   na mesma mensagem CAN de posição. Conversão de voltas/s para graus/s, redução mecânica
-  e inversão iguais às da posição. O padrão é `0`, inclusive depois de reiniciar.
+  e inversão iguais às da posição. O padrão é `0` quando ainda não existe configuração
+  salva. Cada alteração agora é salva automaticamente no OpenFFBoard e restaurada
+  depois de reiniciar ou desligar e ligar; não é preciso executar `save`.
 - As amostras de velocidade com mais de 5 ms são rejeitadas; nesse caso volta-se à derivada
   da posição. A troca de fonte não é diferenciada como se fosse aceleração física.
 - Mantêm-se os biquads existentes de velocidade/aceleração. Não há equalizador novo.
-  O limitador de torque mantém a correção anterior, seus valores e a base temporal original.
-  Medir `dt` aqui não significa utilizá-lo para alterar `maxtorquerate`.
+  O limitador de torque usa o dt real conforme [torque-dt-pt-BR.md](torque-dt-pt-BR.md).
 - A recepção de telemetria rejeita frames de outro barramento/nó, IDs estendidos, RTR,
   tamanhos incorretos e pares de floats não finitos. Comandos existentes mantêm seus IDs.
 
 Os snapshots são formatados fora do loop FFB. A leitura copia o estado sob uma seção
 crítica curta; o firmware não faz polling adicional de Iq e não escreve configuração na ODrive.
-Não se alteram calibração, corrente máxima, torque_constant, ganhos de efeitos ou flash.
+Não se alteram calibração, corrente máxima, torque_constant ou ganhos de efeitos.
+A persistência grava apenas os ajustes do OpenFFBoard; não grava configuração na ODrive.
+Veja [axis-persistence-pt-BR.md](axis-persistence-pt-BR.md).
 
 ## Captura inicial (velocidade original)
 
@@ -58,7 +61,8 @@ Não se alteram calibração, corrente máxima, torque_constant, ganhos de efeit
    A captura padrão é de 20 consultas/s; o firmware conta todas as iterações do loop.
 5. Comparar, com o mesmo jogo/carro/ganhos e força inicialmente reduzida, habilitando
    `axis.0.encvel=1` no terminal antes de uma segunda captura para `encoder_velocity.csv`.
-   Usar `axis.0.encvel=0` para voltar imediatamente. Evitar trocar a fonte com volante carregado.
+   Usar `axis.0.encvel=0` para voltar imediatamente; essa escolha também fica salva.
+   Evitar trocar a fonte com volante carregado.
 6. Ao terminar, restaurar no console ODrive:
 
    ```python
@@ -89,15 +93,16 @@ interno do jogo). `slew_count` registra atuação do slew, antes do segundo clip
 Os contadores acumulam desde a inicialização; o script calcula eventos/s por diferenças.
 `loop_hz` usa a diferença de sequências e timestamps de duas consultas; não é a taxa de
 pacotes HID. `dt_us/min_dt_us/max_dt_us` usam uma leitura coerente do tick HAL e do
-timer de microssegundos (`diagnosticMicros()`, somente para diagnóstico) e
+timer de microssegundos (`diagnosticMicros()`, também usado pelo limitador com dt) e
 medem intervalos entre `prepareForUpdate()`, não latência USB → torque físico. Pausas e
 mudanças de frequência entram nos mínimos/máximos acumulados desde o boot.
 
 A leitura compensa uma virada do timer com interrupção ainda pendente e repete
 o snapshot se o contador virar entre as leituras dos registradores. Isso evita
 que uma leitura temporal inconsistente contamine os extremos com valores como
-4294967295. O relógio dos efeitos e o rate limiter permanecem inalterados.
-Não há descarte de intervalos longos nem substituição por valores nominais.
+4294967295. O relógio dos efeitos permanece inalterado. Os diagnósticos não descartam
+intervalos longos nem os substituem por valores nominais; o limite de dt do rate limiter
+é descrito separadamente em [torque-dt-pt-BR.md](torque-dt-pt-BR.md).
 Após instalar a correção, `axis.0.diag?` mostra extremos medidos a partir do novo
 boot; eles não precisam ser 1000 exatos, pois incluem pausas e jitter.
 

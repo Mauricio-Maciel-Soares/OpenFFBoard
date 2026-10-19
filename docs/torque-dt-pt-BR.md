@@ -4,7 +4,7 @@ Base: OpenFFBoard v1.17.1/F407VG, a partir de `c1f0a0ab3d5c1a057cdd090a22ddbf4ea
 
 ## Comportamento
 
-`axis.0.maxtorquerate` continua em **counts/ms**. O valor zero continua desativando completamente o limitador, sem ler seu relógio ou acumular crédito. A inicialização continua em zero; esta alteração não ativa 10 Nm/ms nem altera configurações da ODrive.
+`axis.0.maxtorquerate` continua em **counts/ms**. O valor zero continua desativando completamente o limitador, sem ler seu relógio ou acumular crédito. Sem configuração salva, a inicialização continua em zero. As alterações agora são salvas automaticamente e restauradas ao reiniciar, conforme [axis-persistence-pt-BR.md](axis-persistence-pt-BR.md). Nenhum valor de 10 Nm/ms é escolhido automaticamente e não há alteração nas configurações da ODrive.
 
 O limite por atualização passa a ser:
 
@@ -50,4 +50,4 @@ Com escala de 30 Nm, aproximadamente 10922 counts/ms correspondem a 10 Nm/ms no 
 
 `python3 tests/test_hid_pid.py` mantém as regressões dos relatórios USB HID PID e dos quatro descritores. Os testes C++ executam com AddressSanitizer e UndefinedBehaviorSanitizer. No ambiente local restrito, somente LeakSanitizer é desativado com `ASAN_OPTIONS=detect_leaks=0`; no GitHub Actions os sanitizadores executam normalmente.
 
-O workflow compila F407VG, F407VG_DISCO e F411RE. A validação física do `.hex` e da regularidade de saída no conjunto F407VG + ODrive 3.6 FW0.5.6 permanece pendente. A implementação mantém o limite desativado por padrão, conforme combinado.
+O workflow compila F407VG, F407VG_DISCO e F411RE. A validação física do `.hex` e da regularidade de saída no conjunto F407VG + ODrive 3.6 FW0.5.6 permanece pendente. O limite fica desativado por padrão quando ainda não existe valor salvo; depois, prevalece a configuração do usuário.
