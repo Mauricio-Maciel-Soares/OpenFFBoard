@@ -21,7 +21,7 @@ jobs:
     name: Persistence, torque dt, diagnostics and HID PID host regressions
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - run: python3 tests/test_diagnostics.py
       - run: python3 tests/test_hid_pid.py
       - run: python3 tests/test_axis_persistence.py
@@ -39,11 +39,11 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       
       - {uses: ./.github/actions/build-firmware, with: {target: '${{ matrix.target }}', path: 'Output'}}
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: OpenFFBoard-Firmware-${{ matrix.target }}
           path: ./Firmware/Output
