@@ -255,7 +255,11 @@ void TIM1_TRG_COM_TIM11_IRQHandler(void)
 
   /* USER CODE END TIM1_TRG_COM_TIM11_IRQn 0 */
   HAL_TIM_IRQHandler(&htim1);
+  /* Keep UIF acknowledgement and HAL tick increment atomic to CAN timestamp readers. */
+  const uint32_t tickMask = __get_PRIMASK();
+  __disable_irq();
   HAL_TIM_IRQHandler(&htim11);
+  __set_PRIMASK(tickMask);
   /* USER CODE BEGIN TIM1_TRG_COM_TIM11_IRQn 1 */
 
   /* USER CODE END TIM1_TRG_COM_TIM11_IRQn 1 */

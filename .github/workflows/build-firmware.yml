@@ -22,11 +22,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7.0.1
-      - run: python3 tests/test_diagnostics.py
-      - run: python3 tests/test_hid_pid.py
-      - run: python3 tests/test_axis_persistence.py
+      - run: python3 -m unittest discover -s tests -p 'test_*.py' -v
   # Build firmware
   Build_firmware:
+    needs: Diagnostics_tests
     name: Build firmware
     strategy:
         fail-fast: false

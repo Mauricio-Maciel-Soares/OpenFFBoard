@@ -6,6 +6,7 @@ import math
 import re
 import time
 from pathlib import Path
+from torque_study import AXIS_V2_EXTRA, ODRIVE_V2_EXTRA
 
 AXIS_FIELDS = "version sequence time_us dt_us min_dt_us max_dt_us clip_count slew_count effect_counts requested_counts clipped_counts output_counts position_speed_deg_s encoder_speed_deg_s speed_deg_s accel_deg_s2 encoder_valid encoder_used driver_ready".split()
 ODRIVE_FIELDS = "version time_ms iq_sequence iq_age_ms iq_setpoint_a iq_measured_a encoder_sequence encoder_age_ms velocity_turns_s tx_sequence tx_age_ms queued_torque_nm tx_errors".split()
@@ -14,7 +15,11 @@ UINT32_MAX = (1 << 32) - 1
 
 def parse_payload(payload, fields):
     values = payload.split(",")
-    if len(values) != len(fields) or values[0] != "1":
+    version = '1'
+    if values[0] == '2' and fields in (AXIS_FIELDS, ODRIVE_FIELDS):
+        fields = fields + (AXIS_V2_EXTRA if fields == AXIS_FIELDS else ODRIVE_V2_EXTRA)
+        version = '2'
+    if len(values) != len(fields) or values[0] != version:
         raise ValueError("Firmware diagnostic schema is missing or incompatible")
     numbers = [float(value) for value in values]
     if not all(math.isfinite(value) for value in numbers):
@@ -23,6 +28,10 @@ def parse_payload(payload, fields):
 
 
 def read_snapshot(port, command, fields, timeout=1.0):
+    return parse_payload(read_reply(port, command, timeout), fields)
+
+
+def read_reply(port, command, timeout=1.0):
     port.write((command + "\n").encode("ascii"))
     deadline = time.monotonic() + timeout
     buffer = bytearray()
@@ -31,7 +40,7 @@ def read_snapshot(port, command, fields, timeout=1.0):
         buffer.extend(port.read(max(1, port.in_waiting)))
         match = pattern.search(buffer)
         if match:
-            return parse_payload(match.group(1).decode("ascii").strip(), fields)
+            return match.group(1).decode("ascii").strip()
         if len(buffer) > 16384:
             raise ValueError("Unexpected data on the selected CDC port")
     raise TimeoutError(f"No response to {command}; close the configurator and check the firmware/port")

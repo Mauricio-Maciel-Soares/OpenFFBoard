@@ -97,7 +97,7 @@ Axis::Axis(char axis,volatile Control_t* control) :CommandHandler("axis", CLSID_
 		setInstance(0);
 		this->flashAddrs = AxisFlashAddrs({ADR_AXIS1_CONFIG, ADR_AXIS1_MAX_SPEED, ADR_AXIS1_MAX_ACCEL,
 										   ADR_AXIS1_ENDSTOP, ADR_AXIS1_POWER, ADR_AXIS1_DEGREES,ADR_AXIS1_EFFECTS1,ADR_AXIS1_EFFECTS2,ADR_AXIS1_ENC_RATIO,
-										   ADR_AXIS1_SPEEDACCEL_FILTER,ADR_AXIS1_POSTPROCESS1,ADR_AXIS1_TUNING_A_LO});
+										   ADR_AXIS1_SPEEDACCEL_FILTER,ADR_AXIS1_POSTPROCESS1,ADR_AXIS1_TUNING_A_LO,ADR_AXIS1_SLEW_A_0});
 	}
 	else if (axis == 'Y')
 	{
@@ -105,14 +105,14 @@ Axis::Axis(char axis,volatile Control_t* control) :CommandHandler("axis", CLSID_
 		setInstance(1);
 		this->flashAddrs = AxisFlashAddrs({ADR_AXIS2_CONFIG, ADR_AXIS2_MAX_SPEED, ADR_AXIS2_MAX_ACCEL,
 										   ADR_AXIS2_ENDSTOP, ADR_AXIS2_POWER, ADR_AXIS2_DEGREES,ADR_AXIS2_EFFECTS1,ADR_AXIS2_EFFECTS2, ADR_AXIS2_ENC_RATIO,
-										   ADR_AXIS2_SPEEDACCEL_FILTER,ADR_AXIS2_POSTPROCESS1,ADR_AXIS2_TUNING_A_LO});
+										   ADR_AXIS2_SPEEDACCEL_FILTER,ADR_AXIS2_POSTPROCESS1,ADR_AXIS2_TUNING_A_LO,ADR_AXIS2_SLEW_A_0});
 	}
 	else if (axis == 'Z')
 	{
 		setInstance(2);
 		this->flashAddrs = AxisFlashAddrs({ADR_AXIS3_CONFIG, ADR_AXIS3_MAX_SPEED, ADR_AXIS3_MAX_ACCEL,
 										   ADR_AXIS3_ENDSTOP, ADR_AXIS3_POWER, ADR_AXIS3_DEGREES,ADR_AXIS3_EFFECTS1,ADR_AXIS3_EFFECTS2,ADR_AXIS3_ENC_RATIO,
-										   ADR_AXIS3_SPEEDACCEL_FILTER,ADR_AXIS3_POSTPROCESS1,ADR_AXIS3_TUNING_A_LO});
+										   ADR_AXIS3_SPEEDACCEL_FILTER,ADR_AXIS3_POSTPROCESS1,ADR_AXIS3_TUNING_A_LO,ADR_AXIS3_SLEW_A_0});
 	}
 
 
@@ -163,6 +163,10 @@ void Axis::registerCommands(){
 	registerCommand("exposcale", Axis_commands::exposcale, "Scaler constant for expo", CMDFLAG_GET);
 	registerCommand("diag", Axis_commands::diag, "FFB diagnostic snapshot (CSV v1)", CMDFLAG_GET);
 	registerCommand("encvel", Axis_commands::encvel, "Use fresh encoder velocity: 0=legacy, 1=prefer estimate (auto-saved)", CMDFLAG_GET | CMDFLAG_SET);
+	registerCommand("diag2", Axis_commands::diag2, "FFB snapshot with measured loop interval statistics (CSV v2)", CMDFLAG_GET);
+	registerCommand("slewprofile", Axis_commands::slewprofile, "Persistent slew selection: 0=custom; 1..3=saved slot", CMDFLAG_GET | CMDFLAG_SET);
+	registerCommand("slewslot", Axis_commands::slewslot, "Persistent rate in counts/ms at slot address 1..3; editing active slot applies rate", CMDFLAG_GETADR | CMDFLAG_SETADR);
+	registerCommand("slewvalid", Axis_commands::slewvalid, "Initialized slew slots bitmask (bits 0..2)", CMDFLAG_GET);
 }
 
 /*
@@ -267,15 +271,48 @@ void Axis::saveFlash(){
 
 
 void Axis::restoreAxisTuningSettings(){
-	AxisSavedSettings saved; // Missing/legacy storage keeps the opt-in defaults.
-	AxisSettingsStorage::load(flashAddrs.tuning, saved);
-	maxTorqueRateMS = saved.maxTorqueRate;
-	useEncoderVelocity = saved.encoderVelocity;
+	slewSettings = {};
+	AxisSlewProfiles::load(flashAddrs.slewProfiles, flashAddrs.tuning, slewSettings);
+	maxTorqueRateMS = slewSettings.maxTorqueRate;
+	useEncoderVelocity = slewSettings.encoderVelocity;
 	torqueSlew.reset();
 }
 
 bool Axis::saveAxisTuningSettings(uint32_t rate, bool encoderVelocity){
-	return AxisSettingsStorage::save(flashAddrs.tuning, {rate, encoderVelocity});
+	auto next = slewSettings;
+	if (rate != next.maxTorqueRate) next.active = 0;
+	next.maxTorqueRate = rate;
+	next.encoderVelocity = encoderVelocity;
+	if (!AxisSlewProfiles::save(flashAddrs.slewProfiles, next)) return false;
+	slewSettings = next;
+	return true;
+}
+
+bool Axis::commitSlewSettings(const AxisSlewSettings& settings){
+	if (!AxisSlewProfiles::save(flashAddrs.slewProfiles, settings)) return false;
+	if (maxTorqueRateMS != settings.maxTorqueRate) torqueSlew.reset();
+	slewSettings = settings;
+	maxTorqueRateMS = settings.maxTorqueRate;
+	useEncoderVelocity = settings.encoderVelocity;
+	return true;
+}
+
+CommandStatus Axis::setSlewProfile(int64_t value){
+	if (value < 0 || value > 3) return CommandStatus::ERR;
+	auto next = slewSettings;
+	if (value && !(next.validSlots & (1U << (value - 1)))) return CommandStatus::ERR;
+	next.active = value;
+	if (value) next.maxTorqueRate = next.slots[value - 1];
+	return commitSlewSettings(next) ? CommandStatus::OK : CommandStatus::ERR;
+}
+
+CommandStatus Axis::setSlewSlot(int64_t slot, int64_t value){
+	if (slot < 1 || slot > 3 || value < 0 || uint64_t(value) > UINT32_MAX) return CommandStatus::ERR;
+	auto next = slewSettings;
+	next.slots[slot - 1] = value;
+	next.validSlots |= 1U << (slot - 1);
+	if (next.active == slot) next.maxTorqueRate = value;
+	return commitSlewSettings(next) ? CommandStatus::OK : CommandStatus::ERR;
 }
 
 CommandStatus Axis::setEncoderVelocity(int64_t value){
@@ -688,6 +725,7 @@ void Axis::resetMetrics(float new_pos= 0) { // pos is degrees
 	metric.previous = metric_t();
 	_lastSpeed = 0;
 	encoderVelocityWasUsed = false;
+	velocityContinuity.reset();
 	// Reset filters
 	speedFilter.calcBiquad();
 	accelFilter.calcBiquad();
@@ -709,19 +747,30 @@ void Axis::updateMetrics(float new_pos) { // pos is degrees
 	workingDiagnostics.positionSpeed = currentSpeed;
 	float encoderSpeed = 0;
 	Encoder* encoder = getEncoder();
-	const bool encoderValid = encoder && encoder->getVelocity_f(encoderSpeed);
+	bool encoderValid = encoder && encoder->getVelocity_f(encoderSpeed);
 	encoderSpeed *= 360.0f * gearRatio.gearRatio * (isInverted() ? -1.0f : 1.0f);
+	encoderValid = encoderValid && std::isfinite(encoderSpeed);
 	const bool encoderUsed = useEncoderVelocity && encoderValid;
 	if (encoderUsed) currentSpeed = encoderSpeed;
-	// Do not differentiate the discontinuity when changing/falling back between sources.
-	if (encoderUsed != encoderVelocityWasUsed) _lastSpeed = currentSpeed;
+	const auto continuous = velocityContinuity.update(currentSpeed, encoderUsed,
+		workingDiagnostics.timeUs, filter_f);
+	// encvel=0 retains the original position derivative and filter path exactly.
+	float speedDelta = currentSpeed - _lastSpeed;
+	if (useEncoderVelocity) {
+		currentSpeed = continuous.speed;
+		speedDelta = continuous.acceleration / filter_f;
+	} else if (encoderVelocityWasUsed) {
+		speedDelta = 0;
+	}
 	encoderVelocityWasUsed = encoderUsed;
 	workingDiagnostics.encoderSpeed = encoderSpeed;
 	workingDiagnostics.encoderValid = encoderValid;
 	workingDiagnostics.encoderUsed = encoderUsed;
 	metric.current.speed = speedFilter.process(currentSpeed);
-	metric.current.accel = accelFilter.process((currentSpeed - _lastSpeed))* this->filter_f; // deg/s/s
-	_lastSpeed = currentSpeed;
+	metric.current.accel = accelFilter.process(speedDelta) * filter_f; // deg/s/s
+	_lastSpeed = workingDiagnostics.positionSpeed;
+	workingDiagnostics.sourceSwitches = velocityContinuity.switches;
+	workingDiagnostics.velocityTransition = useEncoderVelocity && continuous.transitioning;
 	workingDiagnostics.speed = metric.current.speed;
 	workingDiagnostics.accel = metric.current.accel;
 
@@ -961,20 +1010,31 @@ CommandStatus Axis::command(const ParsedCommand& cmd,std::vector<CommandReply>& 
 		break;
 
 	case Axis_commands::diag:
+	case Axis_commands::diag2:
 	{
 		if (cmd.type != CMDtype::get) return CommandStatus::ERR;
 		cpp_freertos::CriticalSection::Enter();
 		const AxisDiagnostics d = diagnostics;
 		cpp_freertos::CriticalSection::Exit();
-		std::string buf(384, '\0');
+		const bool extended = cmd.cmdId == static_cast<uint32_t>(Axis_commands::diag2);
+		std::string buf(640, '\0');
 		snprintf(buf.data(), buf.size(),
-			"1,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%ld,%ld,%ld,%ld,%.6g,%.6g,%.6g,%.6g,%u,%u,%u",
+			"%u,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%ld,%ld,%ld,%ld,%.6g,%.6g,%.6g,%.6g,%u,%u,%u",
+			extended ? 2U : 1U,
 			(unsigned long)d.sequence, (unsigned long)d.timeUs, (unsigned long)d.dtUs,
 			(unsigned long)(d.minDtUs == UINT32_MAX ? 0 : d.minDtUs), (unsigned long)d.maxDtUs,
 			(unsigned long)d.clipped, (unsigned long)d.limited,
 			(long)d.effect, (long)d.requested, (long)d.clippedTarget, (long)d.output,
 			(double)d.positionSpeed, (double)d.encoderSpeed, (double)d.speed, (double)d.accel,
 			(unsigned)d.encoderValid, (unsigned)d.encoderUsed, (unsigned)d.driverReady);
+		if (extended) {
+			const size_t used = strlen(buf.c_str());
+			snprintf(buf.data() + used, buf.size() - used, ",%lu,%.6g,%.6g,%lu,%lu,%lu,%u,%u,%lu",
+				(unsigned long)d.timing.count, (double)d.timing.meanUs, (double)d.timing.stddevUs(),
+				(unsigned long)d.timing.minUs, (unsigned long)d.timing.maxUs,
+				(unsigned long)d.sourceSwitches, (unsigned)d.velocityTransition,
+				(unsigned)slewSettings.active, (unsigned long)maxTorqueRateMS);
+		}
 		buf.resize(strlen(buf.c_str()));
 		replies.emplace_back(buf);
 		break;
@@ -983,6 +1043,21 @@ CommandStatus Axis::command(const ParsedCommand& cmd,std::vector<CommandReply>& 
 		if (cmd.type == CMDtype::get) replies.emplace_back(useEncoderVelocity ? 1 : 0);
 		else if (cmd.type == CMDtype::set) return setEncoderVelocity(cmd.val);
 		else return CommandStatus::ERR;
+		break;
+	case Axis_commands::slewprofile:
+		if (cmd.type == CMDtype::get) replies.emplace_back(slewSettings.active);
+		else if (cmd.type == CMDtype::set) return setSlewProfile(cmd.val);
+		else return CommandStatus::ERR;
+		break;
+	case Axis_commands::slewslot:
+		if (cmd.adr < 1 || cmd.adr > 3) return CommandStatus::ERR;
+		if (cmd.type == CMDtype::getat) replies.emplace_back(slewSettings.slots[cmd.adr - 1]);
+		else if (cmd.type == CMDtype::setat) return setSlewSlot(cmd.adr, cmd.val);
+		else return CommandStatus::ERR;
+		break;
+	case Axis_commands::slewvalid:
+		if (cmd.type != CMDtype::get) return CommandStatus::ERR;
+		replies.emplace_back(slewSettings.validSlots);
 		break;
 
 	case Axis_commands::degrees:

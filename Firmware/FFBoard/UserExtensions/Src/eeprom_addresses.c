@@ -231,6 +231,64 @@ const uint16_t VirtAddVarTab[NB_OF_VAR] =
 	ADR_ADS111X_MAX_2,
 	ADR_ADS111X_MIN_3,
 	ADR_ADS111X_MAX_3,
+// Persistent slew profiles (v2)
+	ADR_AXIS1_SLEW_A_0, // Slew profile bank A word 0
+	ADR_AXIS1_SLEW_A_1, // Slew profile bank A word 1
+	ADR_AXIS1_SLEW_A_2, // Slew profile bank A word 2
+	ADR_AXIS1_SLEW_A_3, // Slew profile bank A word 3
+	ADR_AXIS1_SLEW_A_4, // Slew profile bank A word 4
+	ADR_AXIS1_SLEW_A_5, // Slew profile bank A word 5
+	ADR_AXIS1_SLEW_A_6, // Slew profile bank A word 6
+	ADR_AXIS1_SLEW_A_7, // Slew profile bank A word 7
+	ADR_AXIS1_SLEW_A_8, // Slew profile bank A word 8
+	ADR_AXIS1_SLEW_B_0, // Slew profile bank B word 0
+	ADR_AXIS1_SLEW_B_1, // Slew profile bank B word 1
+	ADR_AXIS1_SLEW_B_2, // Slew profile bank B word 2
+	ADR_AXIS1_SLEW_B_3, // Slew profile bank B word 3
+	ADR_AXIS1_SLEW_B_4, // Slew profile bank B word 4
+	ADR_AXIS1_SLEW_B_5, // Slew profile bank B word 5
+	ADR_AXIS1_SLEW_B_6, // Slew profile bank B word 6
+	ADR_AXIS1_SLEW_B_7, // Slew profile bank B word 7
+	ADR_AXIS1_SLEW_B_8, // Slew profile bank B word 8
+	ADR_AXIS1_SLEW_SELECT, // Committed slew profile bank selector
+	ADR_AXIS2_SLEW_A_0, // Slew profile bank A word 0
+	ADR_AXIS2_SLEW_A_1, // Slew profile bank A word 1
+	ADR_AXIS2_SLEW_A_2, // Slew profile bank A word 2
+	ADR_AXIS2_SLEW_A_3, // Slew profile bank A word 3
+	ADR_AXIS2_SLEW_A_4, // Slew profile bank A word 4
+	ADR_AXIS2_SLEW_A_5, // Slew profile bank A word 5
+	ADR_AXIS2_SLEW_A_6, // Slew profile bank A word 6
+	ADR_AXIS2_SLEW_A_7, // Slew profile bank A word 7
+	ADR_AXIS2_SLEW_A_8, // Slew profile bank A word 8
+	ADR_AXIS2_SLEW_B_0, // Slew profile bank B word 0
+	ADR_AXIS2_SLEW_B_1, // Slew profile bank B word 1
+	ADR_AXIS2_SLEW_B_2, // Slew profile bank B word 2
+	ADR_AXIS2_SLEW_B_3, // Slew profile bank B word 3
+	ADR_AXIS2_SLEW_B_4, // Slew profile bank B word 4
+	ADR_AXIS2_SLEW_B_5, // Slew profile bank B word 5
+	ADR_AXIS2_SLEW_B_6, // Slew profile bank B word 6
+	ADR_AXIS2_SLEW_B_7, // Slew profile bank B word 7
+	ADR_AXIS2_SLEW_B_8, // Slew profile bank B word 8
+	ADR_AXIS2_SLEW_SELECT, // Committed slew profile bank selector
+	ADR_AXIS3_SLEW_A_0, // Slew profile bank A word 0
+	ADR_AXIS3_SLEW_A_1, // Slew profile bank A word 1
+	ADR_AXIS3_SLEW_A_2, // Slew profile bank A word 2
+	ADR_AXIS3_SLEW_A_3, // Slew profile bank A word 3
+	ADR_AXIS3_SLEW_A_4, // Slew profile bank A word 4
+	ADR_AXIS3_SLEW_A_5, // Slew profile bank A word 5
+	ADR_AXIS3_SLEW_A_6, // Slew profile bank A word 6
+	ADR_AXIS3_SLEW_A_7, // Slew profile bank A word 7
+	ADR_AXIS3_SLEW_A_8, // Slew profile bank A word 8
+	ADR_AXIS3_SLEW_B_0, // Slew profile bank B word 0
+	ADR_AXIS3_SLEW_B_1, // Slew profile bank B word 1
+	ADR_AXIS3_SLEW_B_2, // Slew profile bank B word 2
+	ADR_AXIS3_SLEW_B_3, // Slew profile bank B word 3
+	ADR_AXIS3_SLEW_B_4, // Slew profile bank B word 4
+	ADR_AXIS3_SLEW_B_5, // Slew profile bank B word 5
+	ADR_AXIS3_SLEW_B_6, // Slew profile bank B word 6
+	ADR_AXIS3_SLEW_B_7, // Slew profile bank B word 7
+	ADR_AXIS3_SLEW_B_8, // Slew profile bank B word 8
+	ADR_AXIS3_SLEW_SELECT, // Committed slew profile bank selector
 };
 
 /**		
@@ -452,4 +510,62 @@ const uint16_t exportableFlashAddresses[NB_EXPORTABLE_ADR] =
 	ADR_ADS111X_MAX_2,
 	ADR_ADS111X_MIN_3,
 	ADR_ADS111X_MAX_3,
+// Persistent slew profiles (v2)
+	ADR_AXIS1_SLEW_A_0, // Slew profile bank A word 0
+	ADR_AXIS1_SLEW_A_1, // Slew profile bank A word 1
+	ADR_AXIS1_SLEW_A_2, // Slew profile bank A word 2
+	ADR_AXIS1_SLEW_A_3, // Slew profile bank A word 3
+	ADR_AXIS1_SLEW_A_4, // Slew profile bank A word 4
+	ADR_AXIS1_SLEW_A_5, // Slew profile bank A word 5
+	ADR_AXIS1_SLEW_A_6, // Slew profile bank A word 6
+	ADR_AXIS1_SLEW_A_7, // Slew profile bank A word 7
+	ADR_AXIS1_SLEW_A_8, // Slew profile bank A word 8
+	ADR_AXIS1_SLEW_B_0, // Slew profile bank B word 0
+	ADR_AXIS1_SLEW_B_1, // Slew profile bank B word 1
+	ADR_AXIS1_SLEW_B_2, // Slew profile bank B word 2
+	ADR_AXIS1_SLEW_B_3, // Slew profile bank B word 3
+	ADR_AXIS1_SLEW_B_4, // Slew profile bank B word 4
+	ADR_AXIS1_SLEW_B_5, // Slew profile bank B word 5
+	ADR_AXIS1_SLEW_B_6, // Slew profile bank B word 6
+	ADR_AXIS1_SLEW_B_7, // Slew profile bank B word 7
+	ADR_AXIS1_SLEW_B_8, // Slew profile bank B word 8
+	ADR_AXIS1_SLEW_SELECT, // Committed slew profile bank selector
+	ADR_AXIS2_SLEW_A_0, // Slew profile bank A word 0
+	ADR_AXIS2_SLEW_A_1, // Slew profile bank A word 1
+	ADR_AXIS2_SLEW_A_2, // Slew profile bank A word 2
+	ADR_AXIS2_SLEW_A_3, // Slew profile bank A word 3
+	ADR_AXIS2_SLEW_A_4, // Slew profile bank A word 4
+	ADR_AXIS2_SLEW_A_5, // Slew profile bank A word 5
+	ADR_AXIS2_SLEW_A_6, // Slew profile bank A word 6
+	ADR_AXIS2_SLEW_A_7, // Slew profile bank A word 7
+	ADR_AXIS2_SLEW_A_8, // Slew profile bank A word 8
+	ADR_AXIS2_SLEW_B_0, // Slew profile bank B word 0
+	ADR_AXIS2_SLEW_B_1, // Slew profile bank B word 1
+	ADR_AXIS2_SLEW_B_2, // Slew profile bank B word 2
+	ADR_AXIS2_SLEW_B_3, // Slew profile bank B word 3
+	ADR_AXIS2_SLEW_B_4, // Slew profile bank B word 4
+	ADR_AXIS2_SLEW_B_5, // Slew profile bank B word 5
+	ADR_AXIS2_SLEW_B_6, // Slew profile bank B word 6
+	ADR_AXIS2_SLEW_B_7, // Slew profile bank B word 7
+	ADR_AXIS2_SLEW_B_8, // Slew profile bank B word 8
+	ADR_AXIS2_SLEW_SELECT, // Committed slew profile bank selector
+	ADR_AXIS3_SLEW_A_0, // Slew profile bank A word 0
+	ADR_AXIS3_SLEW_A_1, // Slew profile bank A word 1
+	ADR_AXIS3_SLEW_A_2, // Slew profile bank A word 2
+	ADR_AXIS3_SLEW_A_3, // Slew profile bank A word 3
+	ADR_AXIS3_SLEW_A_4, // Slew profile bank A word 4
+	ADR_AXIS3_SLEW_A_5, // Slew profile bank A word 5
+	ADR_AXIS3_SLEW_A_6, // Slew profile bank A word 6
+	ADR_AXIS3_SLEW_A_7, // Slew profile bank A word 7
+	ADR_AXIS3_SLEW_A_8, // Slew profile bank A word 8
+	ADR_AXIS3_SLEW_B_0, // Slew profile bank B word 0
+	ADR_AXIS3_SLEW_B_1, // Slew profile bank B word 1
+	ADR_AXIS3_SLEW_B_2, // Slew profile bank B word 2
+	ADR_AXIS3_SLEW_B_3, // Slew profile bank B word 3
+	ADR_AXIS3_SLEW_B_4, // Slew profile bank B word 4
+	ADR_AXIS3_SLEW_B_5, // Slew profile bank B word 5
+	ADR_AXIS3_SLEW_B_6, // Slew profile bank B word 6
+	ADR_AXIS3_SLEW_B_7, // Slew profile bank B word 7
+	ADR_AXIS3_SLEW_B_8, // Slew profile bank B word 8
+	ADR_AXIS3_SLEW_SELECT, // Committed slew profile bank selector
 };

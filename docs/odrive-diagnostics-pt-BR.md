@@ -149,3 +149,7 @@ Referência do protocolo verificada no código ODrive **fw-v0.5.6**:
 (`get_iq_callback`, `get_encoder_estimates_callback`, `service_stack`).
 Inspiração para usar a velocidade estimada:
 [Odrive-Wheel](https://github.com/eagabriel/Odrive-Wheel/blob/main/Odrive-Wheel/src/ffb_task.cpp).
+
+## Extensão atual
+
+A versão com `diag2`, histórico de corrente e perfis de slew está descrita em [torque-study-pt-BR.md](torque-study-pt-BR.md).

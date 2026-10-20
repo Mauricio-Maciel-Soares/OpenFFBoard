@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cmath>
 #include <cstring>
+#include "TimingStatistics.h"
 
 // Caller prevents the HAL tick ISR from changing tick/UIF during this snapshot.
 // Hardware keeps counting: retry if an overflow occurs between register reads.
@@ -40,8 +41,12 @@ struct AxisDiagnostics {
     bool encoderUsed = false;
     bool driverReady = false;
     bool timeInitialized = false;
+    TimingStatistics timing;
+    uint32_t sourceSwitches = 0;
+    bool velocityTransition = false;
 
     void recordTime(uint32_t now) {
+        timing.record(now);
         if (timeInitialized) {
             dtUs = now - timeUs; // unsigned subtraction also handles timer rollover
             if (dtUs < minDtUs) minDtUs = dtUs;
@@ -79,6 +84,21 @@ struct ODriveTelemetry {
     uint32_t encoderSequence = 0;
     uint32_t txSequence = 0;
     uint32_t txErrors = 0;
+    TimingStatistics iqTiming, encoderTiming, txTiming;
+    uint32_t invalidEncoder = 0, invalidIq = 0, busErrors = 0;
+    uint32_t voltageTimeUs = 0;
+    bool voltageValid = false;
+    uint8_t freshEncoderStreak = 0;
+
+    void recordEncoder(uint32_t now) {
+        const bool continuous = encoderTiming.initialized && uint32_t(now - encoderTiming.lastTimeUs) <= 5000;
+        freshEncoderStreak = continuous ? std::min<unsigned>(2, freshEncoderStreak + 1) : 1;
+        encoderTiming.record(now);
+    }
+    bool velocityFreshUs(uint32_t now) const {
+        return freshEncoderStreak >= 2 && encoderTiming.initialized
+            && uint32_t(now - encoderTiming.lastTimeUs) <= 5000;
+    }
 
     bool velocityFresh(uint32_t now) const {
         return encoderSequence != 0 && uint32_t(now - encoderTimeMs) <= 5;

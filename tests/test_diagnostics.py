@@ -1,5 +1,6 @@
 """Host regressions: actual Axis method bodies with hardware/filter test doubles."""
 import importlib.util
+import sys
 import subprocess
 import tempfile
 import unittest
@@ -7,6 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 INC = ROOT / "Firmware/FFBoard/Inc"
+sys.path.insert(0, str(ROOT / "tools"))
 spec = importlib.util.spec_from_file_location("capture", ROOT / "tools/capture_odrive_diagnostics.py")
 capture = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(capture)
@@ -26,6 +28,7 @@ def method(text, signature):
 HARNESS = r'''
 #include "FFBDiagnostics.h"
 #include "TorqueSlewLimiter.h"
+#include "VelocityContinuity.h"
 #include <vector>
 #include <cassert>
 #include <algorithm>
@@ -65,6 +68,7 @@ struct Axis {
     uint16_t maxSpeedDegS=0,power=10000;
     uint32_t maxTorqueRateMS=1000;
     TorqueSlewLimiter torqueSlew;
+    VelocityContinuity velocityContinuity;
     int32_t lastTorqueCommand=0;
     bool torqueCommandValid=false;
     Control controlData;Control* control=&controlData;
@@ -143,19 +147,25 @@ int main(){
     b.outOfBounds=false;b.updateDriveTorque();assert(b.driver.commands.back()==0); // fresh timestamp
 
     Axis v;
-    v.updateMetrics(1); assert(v.metric.current.speed==1000); // default path unchanged
-    assert(!v.diagnostics.encoderUsed);
+    v.workingDiagnostics.timeUs=1000;
+    v.updateMetrics(1); assert(v.metric.current.speed==1000); // legacy path unchanged
     v.useEncoderVelocity=true; v.gearRatio.gearRatio=0.5f; v.invertAxis=true;
-    v.updateMetrics(2);
-    assert(v.metric.current.speed==-360 && v.metric.current.accel==0); // sign, turns/s and ratio
-    assert(v.workingDiagnostics.encoderUsed);
-    v.encoder.velocity=3;
-    v.updateMetrics(3); assert(v.metric.current.speed==-540 && v.metric.current.accel==-180000);
-    v.encoder.fresh=false;
-    v.updateMetrics(4); assert(v.metric.current.speed==1000 && v.metric.current.accel==0);
+    v.workingDiagnostics.timeUs=2000; v.updateMetrics(2);
+    assert(v.metric.current.speed==1000 && v.metric.current.accel==0); // continuous source switch
+    assert(v.workingDiagnostics.encoderUsed && v.workingDiagnostics.velocityTransition);
+    for (unsigned n=3;n<=7;++n) {v.workingDiagnostics.timeUs=n*1000;v.updateMetrics(n);}
+    assert(v.metric.current.speed==-360 && !v.workingDiagnostics.velocityTransition);
+    v.encoder.velocity=3;v.workingDiagnostics.timeUs=8000;
+    v.updateMetrics(8); assert(v.metric.current.speed==-540 && v.metric.current.accel==-180000);
+    v.encoder.fresh=false;v.workingDiagnostics.timeUs=9000;
+    v.updateMetrics(9); assert(v.metric.current.speed==-540 && v.metric.current.accel==0);
     assert(!v.workingDiagnostics.encoderUsed);
-    v.encoder.fresh=true;
-    v.updateMetrics(5); assert(v.metric.current.speed==-540 && v.metric.current.accel==0);
+    for(unsigned n=10;n<=14;++n){v.workingDiagnostics.timeUs=n*1000;v.updateMetrics(n);}
+    assert(v.metric.current.speed==1000);
+    v.encoder.fresh=true;v.workingDiagnostics.timeUs=15000;
+    v.updateMetrics(15); assert(v.metric.current.speed==1000 && v.metric.current.accel==0);
+    assert(v.workingDiagnostics.sourceSwitches==3);
+
 }
 '''
 

@@ -13,11 +13,11 @@
 
 #include "main.h"
 // Change this to the amount of currently registered variables
-#define NB_OF_VAR 185
+#define NB_OF_VAR 242
 extern const uint16_t VirtAddVarTab[NB_OF_VAR];
 
 // Amount of variables in exportable list
-#define NB_EXPORTABLE_ADR 170
+#define NB_EXPORTABLE_ADR 227
 extern const uint16_t exportableFlashAddresses[NB_EXPORTABLE_ADR];
 
 
@@ -249,4 +249,62 @@ uint16_t EE_ReadVariable(uint16_t VirtAddress, uint16_t* Data) will return 1 if 
 #define ADR_ADS111X_MAX_2 0x515
 #define ADR_ADS111X_MIN_3 0x516
 #define ADR_ADS111X_MAX_3 0x517
+// Persistent slew profiles (v2)
+#define ADR_AXIS1_SLEW_A_0 0x460 // Slew profile bank A word 0
+#define ADR_AXIS1_SLEW_A_1 0x461 // Slew profile bank A word 1
+#define ADR_AXIS1_SLEW_A_2 0x462 // Slew profile bank A word 2
+#define ADR_AXIS1_SLEW_A_3 0x463 // Slew profile bank A word 3
+#define ADR_AXIS1_SLEW_A_4 0x464 // Slew profile bank A word 4
+#define ADR_AXIS1_SLEW_A_5 0x465 // Slew profile bank A word 5
+#define ADR_AXIS1_SLEW_A_6 0x466 // Slew profile bank A word 6
+#define ADR_AXIS1_SLEW_A_7 0x467 // Slew profile bank A word 7
+#define ADR_AXIS1_SLEW_A_8 0x468 // Slew profile bank A word 8
+#define ADR_AXIS1_SLEW_B_0 0x469 // Slew profile bank B word 0
+#define ADR_AXIS1_SLEW_B_1 0x46A // Slew profile bank B word 1
+#define ADR_AXIS1_SLEW_B_2 0x46B // Slew profile bank B word 2
+#define ADR_AXIS1_SLEW_B_3 0x46C // Slew profile bank B word 3
+#define ADR_AXIS1_SLEW_B_4 0x46D // Slew profile bank B word 4
+#define ADR_AXIS1_SLEW_B_5 0x46E // Slew profile bank B word 5
+#define ADR_AXIS1_SLEW_B_6 0x46F // Slew profile bank B word 6
+#define ADR_AXIS1_SLEW_B_7 0x470 // Slew profile bank B word 7
+#define ADR_AXIS1_SLEW_B_8 0x471 // Slew profile bank B word 8
+#define ADR_AXIS1_SLEW_SELECT 0x472 // Committed slew profile bank selector
+#define ADR_AXIS2_SLEW_A_0 0x480 // Slew profile bank A word 0
+#define ADR_AXIS2_SLEW_A_1 0x481 // Slew profile bank A word 1
+#define ADR_AXIS2_SLEW_A_2 0x482 // Slew profile bank A word 2
+#define ADR_AXIS2_SLEW_A_3 0x483 // Slew profile bank A word 3
+#define ADR_AXIS2_SLEW_A_4 0x484 // Slew profile bank A word 4
+#define ADR_AXIS2_SLEW_A_5 0x485 // Slew profile bank A word 5
+#define ADR_AXIS2_SLEW_A_6 0x486 // Slew profile bank A word 6
+#define ADR_AXIS2_SLEW_A_7 0x487 // Slew profile bank A word 7
+#define ADR_AXIS2_SLEW_A_8 0x488 // Slew profile bank A word 8
+#define ADR_AXIS2_SLEW_B_0 0x489 // Slew profile bank B word 0
+#define ADR_AXIS2_SLEW_B_1 0x48A // Slew profile bank B word 1
+#define ADR_AXIS2_SLEW_B_2 0x48B // Slew profile bank B word 2
+#define ADR_AXIS2_SLEW_B_3 0x48C // Slew profile bank B word 3
+#define ADR_AXIS2_SLEW_B_4 0x48D // Slew profile bank B word 4
+#define ADR_AXIS2_SLEW_B_5 0x48E // Slew profile bank B word 5
+#define ADR_AXIS2_SLEW_B_6 0x48F // Slew profile bank B word 6
+#define ADR_AXIS2_SLEW_B_7 0x490 // Slew profile bank B word 7
+#define ADR_AXIS2_SLEW_B_8 0x491 // Slew profile bank B word 8
+#define ADR_AXIS2_SLEW_SELECT 0x492 // Committed slew profile bank selector
+#define ADR_AXIS3_SLEW_A_0 0x4A0 // Slew profile bank A word 0
+#define ADR_AXIS3_SLEW_A_1 0x4A1 // Slew profile bank A word 1
+#define ADR_AXIS3_SLEW_A_2 0x4A2 // Slew profile bank A word 2
+#define ADR_AXIS3_SLEW_A_3 0x4A3 // Slew profile bank A word 3
+#define ADR_AXIS3_SLEW_A_4 0x4A4 // Slew profile bank A word 4
+#define ADR_AXIS3_SLEW_A_5 0x4A5 // Slew profile bank A word 5
+#define ADR_AXIS3_SLEW_A_6 0x4A6 // Slew profile bank A word 6
+#define ADR_AXIS3_SLEW_A_7 0x4A7 // Slew profile bank A word 7
+#define ADR_AXIS3_SLEW_A_8 0x4A8 // Slew profile bank A word 8
+#define ADR_AXIS3_SLEW_B_0 0x4A9 // Slew profile bank B word 0
+#define ADR_AXIS3_SLEW_B_1 0x4AA // Slew profile bank B word 1
+#define ADR_AXIS3_SLEW_B_2 0x4AB // Slew profile bank B word 2
+#define ADR_AXIS3_SLEW_B_3 0x4AC // Slew profile bank B word 3
+#define ADR_AXIS3_SLEW_B_4 0x4AD // Slew profile bank B word 4
+#define ADR_AXIS3_SLEW_B_5 0x4AE // Slew profile bank B word 5
+#define ADR_AXIS3_SLEW_B_6 0x4AF // Slew profile bank B word 6
+#define ADR_AXIS3_SLEW_B_7 0x4B0 // Slew profile bank B word 7
+#define ADR_AXIS3_SLEW_B_8 0x4B1 // Slew profile bank B word 8
+#define ADR_AXIS3_SLEW_SELECT 0x4B2 // Committed slew profile bank selector
 #endif /* EEPROM_ADDRESSES_H_ */

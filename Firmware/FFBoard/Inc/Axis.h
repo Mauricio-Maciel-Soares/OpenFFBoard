@@ -25,6 +25,8 @@
 #include "EffectsCalculator.h"
 #include "FFBDiagnostics.h"
 #include "TorqueSlewLimiter.h"
+#include "VelocityContinuity.h"
+#include "AxisSlewProfiles.h"
 
 #define INTERNAL_AXIS_DAMPER_SCALER 0.7
 #define INTERNAL_AXIS_FRICTION_SCALER 0.7
@@ -63,6 +65,7 @@ struct AxisFlashAddrs
 	uint16_t speedAccelFilter = ADR_AXIS1_SPEEDACCEL_FILTER;
 	uint16_t postprocess1 = ADR_AXIS1_POSTPROCESS1;
 	uint16_t tuning = ADR_AXIS1_TUNING_A_LO;
+	uint16_t slewProfiles = ADR_AXIS1_SLEW_A_0;
 };
 
 struct AxisConfig
@@ -97,7 +100,7 @@ enum class Axis_commands : uint32_t{
 	power=0x00,degrees=0x01,esgain,zeroenc,invert,idlespring,axisdamper,enctype,drvtype,
 	pos,maxspeed,maxtorquerate,fxratio,curtorque,curpos,curspd,curaccel,reductionScaler,
 	filterSpeed, filterAccel, filterProfileId,cpr,axisfriction,axisinertia,
-	expo,exposcale,diag,encvel
+	expo,exposcale,diag,encvel,diag2,slewprofile,slewslot,slewvalid
 };
 
 class Axis : public PersistentStorage, public CommandHandler, public ErrorHandler
@@ -232,6 +235,10 @@ private:
 	bool saveAxisTuningSettings(uint32_t rate, bool encoderVelocity);
 	CommandStatus setEncoderVelocity(int64_t value);
 	CommandStatus setMaxTorqueRate(int64_t value);
+	AxisSlewSettings slewSettings;
+	CommandStatus setSlewProfile(int64_t value);
+	CommandStatus setSlewSlot(int64_t slot, int64_t value);
+	bool commitSlewSettings(const AxisSlewSettings& settings);
 	float speedLimiterP = AXIS_SPEEDLIMITER_P;
 	float speedLimiterI = AXIS_SPEEDLIMITER_I;
 
@@ -252,6 +259,7 @@ private:
 	float _lastSpeed = 0;
 	bool useEncoderVelocity = false; // persisted on SET; default remains opt-in
 	bool encoderVelocityWasUsed = false;
+	VelocityContinuity velocityContinuity;
 	AxisDiagnostics diagnostics; // published at the end of the torque calculation
 	AxisDiagnostics workingDiagnostics;
 	int32_t effectTorque = 0;

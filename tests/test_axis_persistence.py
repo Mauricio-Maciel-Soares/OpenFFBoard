@@ -45,12 +45,13 @@ bool Flash_Write(uint16_t a,uint16_t value){
     flash[a]=value;return true;
 }
 #include "AxisSettingsStorage.h"
+#include "AxisSlewProfiles.h"
 #include "eeprom_addresses.h"
 void pulseErrLed(){}
 enum class CommandStatus {OK,ERR,NOT_FOUND};
 enum class CMDtype {get,set,getat,setat,other};
-enum class Axis_commands {encvel,maxtorquerate};
-struct ParsedCommand {Axis_commands cmdId;CMDtype type;int64_t val;};
+enum class Axis_commands {encvel,maxtorquerate,slewprofile,slewslot,slewvalid};
+struct ParsedCommand {Axis_commands cmdId;CMDtype type;int64_t val;int64_t adr=0;};
 using CommandReply=int64_t;
 FLASH_ADDRESSES
 struct Filter {void setFc(float){} void setQ(float){}};
@@ -66,6 +67,10 @@ struct Axis {
     int8_t expoValInt=0;
     bool invertAxis=true,useEncoderVelocity=false;
     uint32_t maxTorqueRateMS=0;
+    AxisSlewSettings slewSettings;
+    bool commitSlewSettings(const AxisSlewSettings&);
+    CommandStatus setSlewProfile(int64_t);
+    CommandStatus setSlewSlot(int64_t,int64_t);
     struct {unsigned resets=0;void reset(){++resets;}} torqueSlew;
     float filter_f=1000;
     struct FilterSetting {float freq=40,q=70;} filterSpeedCst[4],filterAccelCst[4];
@@ -129,8 +134,8 @@ int main(){
     Axis manual;manual.restoreFlash();assert(manual.maxTorqueRateMS==0xdeadbeef && manual.useEncoderVelocity);
 
     // Independent per-axis records, with no overwrite of X or the old map.
-    Axis y;y.flashAddrs.tuning=ADR_AXIS2_TUNING_A_LO;
-    Axis z;z.flashAddrs.tuning=ADR_AXIS3_TUNING_A_LO;
+    Axis y;y.flashAddrs.tuning=ADR_AXIS2_TUNING_A_LO;y.flashAddrs.slewProfiles=ADR_AXIS2_SLEW_A_0;
+    Axis z;z.flashAddrs.tuning=ADR_AXIS3_TUNING_A_LO;z.flashAddrs.slewProfiles=ADR_AXIS3_SLEW_A_0;
     assert(set(y,Axis_commands::maxtorquerate,99)==CommandStatus::OK);
     assert(set(z,Axis_commands::encvel,1)==CommandStatus::OK);
     y.restoreAxisTuningSettings();z.restoreAxisTuningSettings();manual.restoreAxisTuningSettings();
@@ -156,7 +161,7 @@ int main(){
             assert(a.saveAxisTuningSettings(a.maxTorqueRateMS,a.useEncoderVelocity));
         }
         const auto before=flash;
-        for(int cut=0;cut<=4;++cut){
+        for(int cut=0;cut<=10;++cut){
             flash=before;failAfter=cut;cutPower=true;
             bool committed=false;
             try{committed=a.saveAxisTuningSettings(0xabcd4321,!a.useEncoderVelocity);}catch(const std::runtime_error&){}
@@ -178,14 +183,45 @@ int main(){
     // Explicitly selecting a default on blank storage still creates a record.
     flash.clear();Axis defaults;
     assert(set(defaults,Axis_commands::maxtorquerate,0)==CommandStatus::OK);
-    AxisSavedSettings saved;assert(AxisSettingsStorage::load(ADR_AXIS1_TUNING_A_LO,saved));
+    AxisSlewSettings saved;assert(AxisSlewProfiles::load(ADR_AXIS1_SLEW_A_0, ADR_AXIS1_TUNING_A_LO,saved));
     assert(saved.maxTorqueRate==0 && !saved.encoderVelocity);
     // A missing or invalid committed record must not enable either option.
-    flash[ADR_AXIS1_TUNING_A_FLAGS]=0xffff;
+    flash[ADR_AXIS1_SLEW_A_8]=0xffff;
     defaults.maxTorqueRateMS=99;defaults.useEncoderVelocity=true;
     defaults.restoreAxisTuningSettings();assert(defaults.maxTorqueRateMS==0 && !defaults.useEncoderVelocity);
-    flash[ADR_AXIS1_TUNING_A_FLAGS]=0xa500;flash.erase(ADR_AXIS1_TUNING_A_HI);
+    flash[ADR_AXIS1_SLEW_A_8]=0xc600;flash.erase(ADR_AXIS1_SLEW_A_1);
     defaults.restoreAxisTuningSettings();assert(defaults.maxTorqueRateMS==0 && !defaults.useEncoderVelocity);
+    // Migrate saved dt-era settings without resetting rate or encvel.
+    flash.clear();assert(AxisSettingsStorage::save(ADR_AXIS1_TUNING_A_LO,{10922,true}));
+    Axis migrated;migrated.restoreAxisTuningSettings();
+    assert(migrated.maxTorqueRateMS==10922 && migrated.useEncoderVelocity);
+    writes=0;migrated.restoreAxisTuningSettings();assert(writes==0);
+    assert(migrated.setSlewProfile(1)==CommandStatus::ERR); // uninitialized slot
+    for(int slot=1;slot<=3;++slot)assert(migrated.setSlewSlot(slot,slot*2731)==CommandStatus::OK);
+    assert(migrated.maxTorqueRateMS==10922 && migrated.slewSettings.active==0);
+    assert(migrated.setSlewProfile(2)==CommandStatus::OK);
+    Axis profiles;profiles.restoreAxisTuningSettings();
+    assert(profiles.maxTorqueRateMS==5462 && profiles.useEncoderVelocity && profiles.slewSettings.active==2);
+    assert(profiles.setSlewSlot(2,UINT32_MAX)==CommandStatus::OK); // editing active slot is atomic
+    assert(profiles.maxTorqueRateMS==UINT32_MAX);
+    assert(profiles.setMaxTorqueRate(10922)==CommandStatus::OK && profiles.slewSettings.active==0);
+    assert(profiles.setSlewProfile(2)==CommandStatus::OK && profiles.maxTorqueRateMS==UINT32_MAX);
+    writes=0;assert(profiles.setSlewProfile(2)==CommandStatus::OK && writes==0);
+    for(int bad:{-1,4}){assert(profiles.setSlewProfile(bad)==CommandStatus::ERR);assert(profiles.setSlewSlot(bad,1)==CommandStatus::ERR);}
+    assert(profiles.setSlewSlot(0,1)==CommandStatus::ERR && profiles.setSlewSlot(1,-1)==CommandStatus::ERR);
+    assert(profiles.setSlewSlot(1,4294967296LL)==CommandStatus::ERR);
+    const auto stableProfiles=flash;
+    for(int cut=0;cut<=10;++cut){
+        flash=stableProfiles;failAfter=cut;cutPower=true;
+        Axis candidate;candidate.restoreAxisTuningSettings();bool committed=false;
+        try{committed=candidate.setSlewSlot(2,0x12345678)==CommandStatus::OK;}catch(const std::runtime_error&){}
+        failAfter=-1;cutPower=false;
+        Axis restored;restored.restoreAxisTuningSettings();
+        assert(restored.slewSettings.active==2 && restored.useEncoderVelocity);
+        assert(restored.maxTorqueRateMS==(committed?0x12345678U:UINT32_MAX));
+        assert(restored.slewSettings.slots[1]==restored.maxTorqueRateMS);
+    }
+
 }
 '''
 
@@ -198,7 +234,7 @@ class PersistenceTests(unittest.TestCase):
                         for name,following in [('encvel','degrees'),('maxtorquerate','fxratio')])
         methods='\n'.join(method(text,signature) for signature in [
             'void Axis::restoreFlash(', 'void Axis::saveFlash(', 'void Axis::restoreAxisTuningSettings(',
-            'bool Axis::saveAxisTuningSettings(', 'CommandStatus Axis::setEncoderVelocity(', 'CommandStatus Axis::setMaxTorqueRate('])
+            'bool Axis::saveAxisTuningSettings(', 'CommandStatus Axis::setEncoderVelocity(', 'CommandStatus Axis::setMaxTorqueRate(', 'bool Axis::commitSlewSettings(', 'CommandStatus Axis::setSlewProfile(', 'CommandStatus Axis::setSlewSlot('])
         program=HARNESS.replace('FLASH_ADDRESSES',method(header,'struct AxisFlashAddrs')+';').replace('COMMAND_CASES',cases).replace('METHODS',methods)
         with tempfile.TemporaryDirectory() as temp:
             d=Path(temp);(d/'main.h').write_text('#pragma once\n');(d/'test.cpp').write_text(program)
