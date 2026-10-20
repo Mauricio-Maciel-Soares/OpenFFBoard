@@ -86,6 +86,13 @@ const uint16_t VirtAddVarTab[NB_OF_VAR] =
 	ADR_AXIS1_ENC_RATIO, // Accel filter Lowpass
 	ADR_AXIS1_EFFECTS2, // 0-7 Friction, 8-15 Inertia
 	ADR_AXIS1_POSTPROCESS1, // 0-7 expo curve
+	ADR_AXIS1_TUNING_A_LO, // Torque rate low word bank A
+	ADR_AXIS1_TUNING_A_HI, // Torque rate high word bank A
+	ADR_AXIS1_TUNING_A_FLAGS, // Tagged encvel bank A
+	ADR_AXIS1_TUNING_B_LO, // Torque rate low word bank B
+	ADR_AXIS1_TUNING_B_HI, // Torque rate high word bank B
+	ADR_AXIS1_TUNING_B_FLAGS, // Tagged encvel bank B
+	ADR_AXIS1_TUNING_SELECT, // Committed tuning bank selector
 // TMC1
 	ADR_TMC1_MOTCONF, // 0-2: MotType 3-5: PhiE source 6-15: Poles
 	ADR_TMC1_CPR,
@@ -112,6 +119,13 @@ const uint16_t VirtAddVarTab[NB_OF_VAR] =
 	ADR_AXIS2_ENC_RATIO, // Store the encoder ratio for an axis
 	ADR_AXIS2_EFFECTS2, // 0-7 Friction, 8-15 Inertia
 	ADR_AXIS2_POSTPROCESS1, // 0-7 expo curve
+	ADR_AXIS2_TUNING_A_LO, // Torque rate low word bank A
+	ADR_AXIS2_TUNING_A_HI, // Torque rate high word bank A
+	ADR_AXIS2_TUNING_A_FLAGS, // Tagged encvel bank A
+	ADR_AXIS2_TUNING_B_LO, // Torque rate low word bank B
+	ADR_AXIS2_TUNING_B_HI, // Torque rate high word bank B
+	ADR_AXIS2_TUNING_B_FLAGS, // Tagged encvel bank B
+	ADR_AXIS2_TUNING_SELECT, // Committed tuning bank selector
 // TMC2
 	ADR_TMC2_MOTCONF, // 0-2: MotType 3-5: PhiE source 6-15: Poles
 	ADR_TMC2_CPR,
@@ -138,6 +152,13 @@ const uint16_t VirtAddVarTab[NB_OF_VAR] =
 	ADR_AXIS3_ENC_RATIO, // Store the encoder ratio for an axis
 	ADR_AXIS3_EFFECTS2, // 0-7 Friction, 8-15 Inertia
 	ADR_AXIS3_POSTPROCESS1, // 0-7 expo curve
+	ADR_AXIS3_TUNING_A_LO, // Torque rate low word bank A
+	ADR_AXIS3_TUNING_A_HI, // Torque rate high word bank A
+	ADR_AXIS3_TUNING_A_FLAGS, // Tagged encvel bank A
+	ADR_AXIS3_TUNING_B_LO, // Torque rate low word bank B
+	ADR_AXIS3_TUNING_B_HI, // Torque rate high word bank B
+	ADR_AXIS3_TUNING_B_FLAGS, // Tagged encvel bank B
+	ADR_AXIS3_TUNING_SELECT, // Committed tuning bank selector
 // TMC3
 	ADR_TMC3_MOTCONF, // 0-2: MotType 3-5: PhiE source 6-15: Poles
 	ADR_TMC3_CPR,
@@ -210,6 +231,64 @@ const uint16_t VirtAddVarTab[NB_OF_VAR] =
 	ADR_ADS111X_MAX_2,
 	ADR_ADS111X_MIN_3,
 	ADR_ADS111X_MAX_3,
+// Persistent slew profiles (v2)
+	ADR_AXIS1_SLEW_A_0, // Slew profile bank A word 0
+	ADR_AXIS1_SLEW_A_1, // Slew profile bank A word 1
+	ADR_AXIS1_SLEW_A_2, // Slew profile bank A word 2
+	ADR_AXIS1_SLEW_A_3, // Slew profile bank A word 3
+	ADR_AXIS1_SLEW_A_4, // Slew profile bank A word 4
+	ADR_AXIS1_SLEW_A_5, // Slew profile bank A word 5
+	ADR_AXIS1_SLEW_A_6, // Slew profile bank A word 6
+	ADR_AXIS1_SLEW_A_7, // Slew profile bank A word 7
+	ADR_AXIS1_SLEW_A_8, // Slew profile bank A word 8
+	ADR_AXIS1_SLEW_B_0, // Slew profile bank B word 0
+	ADR_AXIS1_SLEW_B_1, // Slew profile bank B word 1
+	ADR_AXIS1_SLEW_B_2, // Slew profile bank B word 2
+	ADR_AXIS1_SLEW_B_3, // Slew profile bank B word 3
+	ADR_AXIS1_SLEW_B_4, // Slew profile bank B word 4
+	ADR_AXIS1_SLEW_B_5, // Slew profile bank B word 5
+	ADR_AXIS1_SLEW_B_6, // Slew profile bank B word 6
+	ADR_AXIS1_SLEW_B_7, // Slew profile bank B word 7
+	ADR_AXIS1_SLEW_B_8, // Slew profile bank B word 8
+	ADR_AXIS1_SLEW_SELECT, // Committed slew profile bank selector
+	ADR_AXIS2_SLEW_A_0, // Slew profile bank A word 0
+	ADR_AXIS2_SLEW_A_1, // Slew profile bank A word 1
+	ADR_AXIS2_SLEW_A_2, // Slew profile bank A word 2
+	ADR_AXIS2_SLEW_A_3, // Slew profile bank A word 3
+	ADR_AXIS2_SLEW_A_4, // Slew profile bank A word 4
+	ADR_AXIS2_SLEW_A_5, // Slew profile bank A word 5
+	ADR_AXIS2_SLEW_A_6, // Slew profile bank A word 6
+	ADR_AXIS2_SLEW_A_7, // Slew profile bank A word 7
+	ADR_AXIS2_SLEW_A_8, // Slew profile bank A word 8
+	ADR_AXIS2_SLEW_B_0, // Slew profile bank B word 0
+	ADR_AXIS2_SLEW_B_1, // Slew profile bank B word 1
+	ADR_AXIS2_SLEW_B_2, // Slew profile bank B word 2
+	ADR_AXIS2_SLEW_B_3, // Slew profile bank B word 3
+	ADR_AXIS2_SLEW_B_4, // Slew profile bank B word 4
+	ADR_AXIS2_SLEW_B_5, // Slew profile bank B word 5
+	ADR_AXIS2_SLEW_B_6, // Slew profile bank B word 6
+	ADR_AXIS2_SLEW_B_7, // Slew profile bank B word 7
+	ADR_AXIS2_SLEW_B_8, // Slew profile bank B word 8
+	ADR_AXIS2_SLEW_SELECT, // Committed slew profile bank selector
+	ADR_AXIS3_SLEW_A_0, // Slew profile bank A word 0
+	ADR_AXIS3_SLEW_A_1, // Slew profile bank A word 1
+	ADR_AXIS3_SLEW_A_2, // Slew profile bank A word 2
+	ADR_AXIS3_SLEW_A_3, // Slew profile bank A word 3
+	ADR_AXIS3_SLEW_A_4, // Slew profile bank A word 4
+	ADR_AXIS3_SLEW_A_5, // Slew profile bank A word 5
+	ADR_AXIS3_SLEW_A_6, // Slew profile bank A word 6
+	ADR_AXIS3_SLEW_A_7, // Slew profile bank A word 7
+	ADR_AXIS3_SLEW_A_8, // Slew profile bank A word 8
+	ADR_AXIS3_SLEW_B_0, // Slew profile bank B word 0
+	ADR_AXIS3_SLEW_B_1, // Slew profile bank B word 1
+	ADR_AXIS3_SLEW_B_2, // Slew profile bank B word 2
+	ADR_AXIS3_SLEW_B_3, // Slew profile bank B word 3
+	ADR_AXIS3_SLEW_B_4, // Slew profile bank B word 4
+	ADR_AXIS3_SLEW_B_5, // Slew profile bank B word 5
+	ADR_AXIS3_SLEW_B_6, // Slew profile bank B word 6
+	ADR_AXIS3_SLEW_B_7, // Slew profile bank B word 7
+	ADR_AXIS3_SLEW_B_8, // Slew profile bank B word 8
+	ADR_AXIS3_SLEW_SELECT, // Committed slew profile bank selector
 };
 
 /**		
@@ -286,6 +365,13 @@ const uint16_t exportableFlashAddresses[NB_EXPORTABLE_ADR] =
 	ADR_AXIS1_ENC_RATIO, // Accel filter Lowpass
 	ADR_AXIS1_EFFECTS2, // 0-7 Friction, 8-15 Inertia
 	ADR_AXIS1_POSTPROCESS1, // 0-7 expo curve
+	ADR_AXIS1_TUNING_A_LO, // Torque rate low word bank A
+	ADR_AXIS1_TUNING_A_HI, // Torque rate high word bank A
+	ADR_AXIS1_TUNING_A_FLAGS, // Tagged encvel bank A
+	ADR_AXIS1_TUNING_B_LO, // Torque rate low word bank B
+	ADR_AXIS1_TUNING_B_HI, // Torque rate high word bank B
+	ADR_AXIS1_TUNING_B_FLAGS, // Tagged encvel bank B
+	ADR_AXIS1_TUNING_SELECT, // Committed tuning bank selector
 // TMC1
 	ADR_TMC1_MOTCONF, // 0-2: MotType 3-5: PhiE source 6-15: Poles
 	ADR_TMC1_CPR,
@@ -312,6 +398,13 @@ const uint16_t exportableFlashAddresses[NB_EXPORTABLE_ADR] =
 	ADR_AXIS2_ENC_RATIO, // Store the encoder ratio for an axis
 	ADR_AXIS2_EFFECTS2, // 0-7 Friction, 8-15 Inertia
 	ADR_AXIS2_POSTPROCESS1, // 0-7 expo curve
+	ADR_AXIS2_TUNING_A_LO, // Torque rate low word bank A
+	ADR_AXIS2_TUNING_A_HI, // Torque rate high word bank A
+	ADR_AXIS2_TUNING_A_FLAGS, // Tagged encvel bank A
+	ADR_AXIS2_TUNING_B_LO, // Torque rate low word bank B
+	ADR_AXIS2_TUNING_B_HI, // Torque rate high word bank B
+	ADR_AXIS2_TUNING_B_FLAGS, // Tagged encvel bank B
+	ADR_AXIS2_TUNING_SELECT, // Committed tuning bank selector
 // TMC2
 	ADR_TMC2_MOTCONF, // 0-2: MotType 3-5: PhiE source 6-15: Poles
 	ADR_TMC2_CPR,
@@ -338,6 +431,13 @@ const uint16_t exportableFlashAddresses[NB_EXPORTABLE_ADR] =
 	ADR_AXIS3_ENC_RATIO, // Store the encoder ratio for an axis
 	ADR_AXIS3_EFFECTS2, // 0-7 Friction, 8-15 Inertia
 	ADR_AXIS3_POSTPROCESS1, // 0-7 expo curve
+	ADR_AXIS3_TUNING_A_LO, // Torque rate low word bank A
+	ADR_AXIS3_TUNING_A_HI, // Torque rate high word bank A
+	ADR_AXIS3_TUNING_A_FLAGS, // Tagged encvel bank A
+	ADR_AXIS3_TUNING_B_LO, // Torque rate low word bank B
+	ADR_AXIS3_TUNING_B_HI, // Torque rate high word bank B
+	ADR_AXIS3_TUNING_B_FLAGS, // Tagged encvel bank B
+	ADR_AXIS3_TUNING_SELECT, // Committed tuning bank selector
 // TMC3
 	ADR_TMC3_MOTCONF, // 0-2: MotType 3-5: PhiE source 6-15: Poles
 	ADR_TMC3_CPR,
@@ -410,4 +510,62 @@ const uint16_t exportableFlashAddresses[NB_EXPORTABLE_ADR] =
 	ADR_ADS111X_MAX_2,
 	ADR_ADS111X_MIN_3,
 	ADR_ADS111X_MAX_3,
+// Persistent slew profiles (v2)
+	ADR_AXIS1_SLEW_A_0, // Slew profile bank A word 0
+	ADR_AXIS1_SLEW_A_1, // Slew profile bank A word 1
+	ADR_AXIS1_SLEW_A_2, // Slew profile bank A word 2
+	ADR_AXIS1_SLEW_A_3, // Slew profile bank A word 3
+	ADR_AXIS1_SLEW_A_4, // Slew profile bank A word 4
+	ADR_AXIS1_SLEW_A_5, // Slew profile bank A word 5
+	ADR_AXIS1_SLEW_A_6, // Slew profile bank A word 6
+	ADR_AXIS1_SLEW_A_7, // Slew profile bank A word 7
+	ADR_AXIS1_SLEW_A_8, // Slew profile bank A word 8
+	ADR_AXIS1_SLEW_B_0, // Slew profile bank B word 0
+	ADR_AXIS1_SLEW_B_1, // Slew profile bank B word 1
+	ADR_AXIS1_SLEW_B_2, // Slew profile bank B word 2
+	ADR_AXIS1_SLEW_B_3, // Slew profile bank B word 3
+	ADR_AXIS1_SLEW_B_4, // Slew profile bank B word 4
+	ADR_AXIS1_SLEW_B_5, // Slew profile bank B word 5
+	ADR_AXIS1_SLEW_B_6, // Slew profile bank B word 6
+	ADR_AXIS1_SLEW_B_7, // Slew profile bank B word 7
+	ADR_AXIS1_SLEW_B_8, // Slew profile bank B word 8
+	ADR_AXIS1_SLEW_SELECT, // Committed slew profile bank selector
+	ADR_AXIS2_SLEW_A_0, // Slew profile bank A word 0
+	ADR_AXIS2_SLEW_A_1, // Slew profile bank A word 1
+	ADR_AXIS2_SLEW_A_2, // Slew profile bank A word 2
+	ADR_AXIS2_SLEW_A_3, // Slew profile bank A word 3
+	ADR_AXIS2_SLEW_A_4, // Slew profile bank A word 4
+	ADR_AXIS2_SLEW_A_5, // Slew profile bank A word 5
+	ADR_AXIS2_SLEW_A_6, // Slew profile bank A word 6
+	ADR_AXIS2_SLEW_A_7, // Slew profile bank A word 7
+	ADR_AXIS2_SLEW_A_8, // Slew profile bank A word 8
+	ADR_AXIS2_SLEW_B_0, // Slew profile bank B word 0
+	ADR_AXIS2_SLEW_B_1, // Slew profile bank B word 1
+	ADR_AXIS2_SLEW_B_2, // Slew profile bank B word 2
+	ADR_AXIS2_SLEW_B_3, // Slew profile bank B word 3
+	ADR_AXIS2_SLEW_B_4, // Slew profile bank B word 4
+	ADR_AXIS2_SLEW_B_5, // Slew profile bank B word 5
+	ADR_AXIS2_SLEW_B_6, // Slew profile bank B word 6
+	ADR_AXIS2_SLEW_B_7, // Slew profile bank B word 7
+	ADR_AXIS2_SLEW_B_8, // Slew profile bank B word 8
+	ADR_AXIS2_SLEW_SELECT, // Committed slew profile bank selector
+	ADR_AXIS3_SLEW_A_0, // Slew profile bank A word 0
+	ADR_AXIS3_SLEW_A_1, // Slew profile bank A word 1
+	ADR_AXIS3_SLEW_A_2, // Slew profile bank A word 2
+	ADR_AXIS3_SLEW_A_3, // Slew profile bank A word 3
+	ADR_AXIS3_SLEW_A_4, // Slew profile bank A word 4
+	ADR_AXIS3_SLEW_A_5, // Slew profile bank A word 5
+	ADR_AXIS3_SLEW_A_6, // Slew profile bank A word 6
+	ADR_AXIS3_SLEW_A_7, // Slew profile bank A word 7
+	ADR_AXIS3_SLEW_A_8, // Slew profile bank A word 8
+	ADR_AXIS3_SLEW_B_0, // Slew profile bank B word 0
+	ADR_AXIS3_SLEW_B_1, // Slew profile bank B word 1
+	ADR_AXIS3_SLEW_B_2, // Slew profile bank B word 2
+	ADR_AXIS3_SLEW_B_3, // Slew profile bank B word 3
+	ADR_AXIS3_SLEW_B_4, // Slew profile bank B word 4
+	ADR_AXIS3_SLEW_B_5, // Slew profile bank B word 5
+	ADR_AXIS3_SLEW_B_6, // Slew profile bank B word 6
+	ADR_AXIS3_SLEW_B_7, // Slew profile bank B word 7
+	ADR_AXIS3_SLEW_B_8, // Slew profile bank B word 8
+	ADR_AXIS3_SLEW_SELECT, // Committed slew profile bank selector
 };

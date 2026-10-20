@@ -31,7 +31,7 @@ __ALIGN_BEGIN const uint8_t hid_1ffb_desc[USB_HID_1FFB_REPORT_DESC_SIZE] __ALIGN
 			      0x09,0x30,    //    Usage X
 			      //0x09,0x31,    //    Usage Y
 			      0x15,0x00,    //    Logical Minimum 0
-			      0x25,0x00,    //    Logical Maximum 0
+			      0x25,0x01,    //    Logical Maximum 1 (axis/direction enable bits)
 			      0x75,0x01,    //    Report Size 1
 			      0x95,0x01,    //    Report Count 1
 			      0x91,0x02,    //    Output (Variable)
@@ -260,7 +260,7 @@ __ALIGN_BEGIN const uint8_t hid_1ffb_desc_32b[USB_HID_1FFB_REPORT_DESC_32B_SIZE]
 			      0x09,0x30,    //    Usage X
 			      //0x09,0x31,    //    Usage Y
 			      0x15,0x00,    //    Logical Minimum 0
-			      0x25,0x00,    //    Logical Maximum 0
+			      0x25,0x01,    //    Logical Maximum 1 (axis/direction enable bits)
 			      0x75,0x01,    //    Report Size 1
 			      0x95,0x01,    //    Report Count 1
 			      0x91,0x02,    //    Output (Variable)

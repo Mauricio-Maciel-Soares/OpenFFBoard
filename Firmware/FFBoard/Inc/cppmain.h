@@ -61,6 +61,8 @@ T clip(T v, C l, C h)
 }
 
 uint32_t micros(); // Returns microsecond scaled time
+uint32_t coherentMicros(); // Coherent task-context clock for slew timing and diagnostics
+uint32_t diagnosticMicros(); // Coherent task/ISR timestamp; tick acknowledgement is atomic
 unsigned long getRunTimeCounterValue(void); // RTOS
 
 void refreshWatchdog(); // Refreshes the watchdog

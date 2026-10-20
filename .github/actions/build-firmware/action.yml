@@ -32,7 +32,7 @@ runs:
       run: mkdir -p /tmp/armtc # make temp directory
 
     # Setup toolchain
-    - uses: actions/cache@v4
+    - uses: actions/cache@v6.1.0
       id: cache
       if: steps.check_tc.outputs.files_exists != 'true'
       with:

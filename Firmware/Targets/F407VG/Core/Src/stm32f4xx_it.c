@@ -502,7 +502,11 @@ void TIM7_IRQHandler(void)
   /* USER CODE BEGIN TIM7_IRQn 0 */
 
   /* USER CODE END TIM7_IRQn 0 */
+  /* Keep UIF acknowledgement and HAL tick increment atomic to CAN timestamp readers. */
+  const uint32_t tickMask = __get_PRIMASK();
+  __disable_irq();
   HAL_TIM_IRQHandler(&htim7);
+  __set_PRIMASK(tickMask);
   /* USER CODE BEGIN TIM7_IRQn 1 */
 
   /* USER CODE END TIM7_IRQn 1 */
