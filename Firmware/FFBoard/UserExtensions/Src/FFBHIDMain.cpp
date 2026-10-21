@@ -382,6 +382,10 @@ void FFBHIDMain::emergencyStop(bool reset){
 void FFBHIDMain::usbSuspend(){
 	if(control.usb_disabled)
 		return;
+	hidReportDiag.suspendEvents++;
+	hidReportDiag.transferPending = false;
+	hidReportDiag.pendingSinceMs = 0;
+	hidReportRetryPending = false;
 	control.usb_disabled = true;
 	ffb->stop_FFB();
 	ffb->reset_ffb(); // Delete all effects
@@ -392,6 +396,10 @@ void FFBHIDMain::usbSuspend(){
  * USB plugged in
  */
 void FFBHIDMain::usbResume(){
+	hidReportDiag.resumeEvents++;
+	hidReportDiag.transferPending = false;
+	hidReportDiag.pendingSinceMs = 0;
+	hidReportRetryPending = false;
 #ifdef E_STOP_Pin
 	if(control.emergency && HAL_GPIO_ReadPin(E_STOP_GPIO_Port, E_STOP_Pin) != GPIO_PIN_RESET){ // Reconnected after emergency stop
 		control.emergency = false;
