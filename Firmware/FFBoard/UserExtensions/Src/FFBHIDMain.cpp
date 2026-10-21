@@ -276,10 +276,10 @@ void FFBHIDMain::transferFailed(uint8_t itf, uint8_t reportType, uint8_t const* 
 }
 
 // CSV fields: version, now_ms, endpoint_not_ready, submit_attempts,
- // submit_accepted, submit_rejected, transfer_completed, transfer_failed,
- // age_not_ready_ms, age_attempt_ms, age_accepted_ms, age_completed_ms,
- // age_failure_ms, pending_age_ms, suspend_events, resume_events,
- // transfer_pending, retry_pending.
+// submit_accepted, submit_rejected, transfer_completed, transfer_failed,
+// age_not_ready_ms, age_attempt_ms, age_accepted_ms, age_completed_ms,
+// age_failure_ms, pending_age_ms, suspend_events, resume_events,
+// transfer_pending, retry_pending.
 std::string FFBHIDMain::getHidUsbDiagnostics(){
 	const uint32_t now = HAL_GetTick();
 	const uint32_t never = UINT32_MAX;
