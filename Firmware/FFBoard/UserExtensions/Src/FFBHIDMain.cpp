@@ -218,7 +218,7 @@ void FFBHIDMain::send_report(){
 
 	// A changed report is sent immediately; unchanged reports are refreshed
 	// periodically. Do not swap buffers unless TinyUSB accepts the transfer.
-	if ((reportSendCounter > 100/usb_report_rate || reportHID->changed())) {
+	if ((reportSendCounter > 100/usb_report_rate || reportHID->changed() || hidReportRetryPending)) {
 		hidReportDiag.submitAttempts++;
 		hidReportDiag.lastAttemptMs = now;
 		if (tud_hid_report(0, reportHID->getBuffer(), reportHID->getLength())) {
@@ -245,7 +245,7 @@ void FFBHIDMain::send_report(){
  * includes ages rather than absolute ticks, so counter wraparound is harmless.
  */
 void FFBHIDMain::transferComplete(uint8_t itf, uint8_t const* report, uint16_t len){
-	if (itf != 0 || report == nullptr || len == 0 ||
+	if (itf != 0 || report == nullptr ||
 		!reportHID || report[0] != 1) {
 		return; // Ignore HID command replies and other report types.
 	}
@@ -268,6 +268,11 @@ void FFBHIDMain::transferFailed(uint8_t itf, uint8_t reportType, uint8_t const* 
 	hidReportRetryPending = true;
 }
 
+// CSV fields: version, now_ms, endpoint_not_ready, submit_attempts,
+ // submit_accepted, submit_rejected, transfer_completed, transfer_failed,
+ // age_not_ready_ms, age_attempt_ms, age_accepted_ms, age_completed_ms,
+ // age_failure_ms, pending_age_ms, suspend_events, resume_events,
+ // transfer_pending, retry_pending.
 std::string FFBHIDMain::getHidUsbDiagnostics(){
 	const uint32_t now = HAL_GetTick();
 	const uint32_t never = UINT32_MAX;
@@ -278,7 +283,7 @@ std::string FFBHIDMain::getHidUsbDiagnostics(){
 	const uint32_t ageFailure = (hidReportDiag.submitRejected || hidReportDiag.transferFailed) ? now - hidReportDiag.lastFailureMs : never;
 	const uint32_t pendingAge = hidReportDiag.transferPending ? now - hidReportDiag.pendingSinceMs : 0;
 
-	std::string buf(384, '\\0');
+	std::string buf(384, '\0');
 	const int written = snprintf(buf.data(), buf.size(),
 		"1,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%u,%u",
 		(unsigned long)now,
