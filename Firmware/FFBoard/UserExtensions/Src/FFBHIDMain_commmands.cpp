@@ -25,7 +25,7 @@ void FFBHIDMain::registerCommands(){
 	registerCommand("hidrate", FFBWheel_commands::hidrate, "Get estimated effect update speed",CMDFLAG_GET);
 	registerCommand("cfrate", FFBWheel_commands::cfrate, "Get estimated const force rate",CMDFLAG_GET);
 	registerCommand("hidsendspd", FFBWheel_commands::hidsendspd, "Change HID gamepad update rate",CMDFLAG_GET|CMDFLAG_SET|CMDFLAG_INFOSTRING);
-	registerCommand("hidusbdiag", FFBWheel_commands::hidusbdiag, "USB HID gamepad transfer diagnostics (CSV v1)",CMDFLAG_GET);
+	registerCommand("hidusbdiag", FFBWheel_commands::hidusbdiag, "USB HID gamepad transfer diagnostics (CSV v1; see firmware source for field order)",CMDFLAG_GET);
 
 	registerCommand("estop", FFBWheel_commands::estop, "Emergency stop",CMDFLAG_GET|CMDFLAG_SET);
 }
