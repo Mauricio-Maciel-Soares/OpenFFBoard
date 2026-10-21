@@ -337,12 +337,18 @@ uint16_t tud_hid_get_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t
 /**
  * HID transfer complete
  */
-void tud_hid_report_complete_cb(uint8_t itf, uint8_t const* report, uint8_t len){
+void tud_hid_report_complete_cb(uint8_t itf, uint8_t const* report, uint16_t len){
 	if(HID_CommandInterface::globalInterface != nullptr){
-		HID_CommandInterface::globalInterface->transferComplete(itf, report, len);
+		HID_CommandInterface::globalInterface->transferComplete(itf, report, static_cast<uint8_t>(len));
 	}
 	if(UsbHidHandler::globalHidHandler != nullptr){
 		UsbHidHandler::globalHidHandler->transferComplete(itf, report, len);
+	}
+}
+
+void tud_hid_report_failed_cb(uint8_t itf, hid_report_type_t report_type, uint8_t const* report, uint16_t xferred_bytes){
+	if(UsbHidHandler::globalHidHandler != nullptr){
+		UsbHidHandler::globalHidHandler->transferFailed(itf, static_cast<uint8_t>(report_type), report, xferred_bytes);
 	}
 }
 
