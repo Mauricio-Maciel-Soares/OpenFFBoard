@@ -246,7 +246,7 @@ void FFBHIDMain::send_report(){
  */
 void FFBHIDMain::transferComplete(uint8_t itf, uint8_t const* report, uint16_t len){
 	if (itf != 0 || report == nullptr || len == 0 ||
-		len != reportHID->getLength() || report[0] != 1) {
+		!reportHID || report[0] != 1) {
 		return; // Ignore HID command replies and other report types.
 	}
 	hidReportDiag.transferCompleted++;
@@ -258,7 +258,7 @@ void FFBHIDMain::transferComplete(uint8_t itf, uint8_t const* report, uint16_t l
 void FFBHIDMain::transferFailed(uint8_t itf, uint8_t reportType, uint8_t const* report, uint16_t len){
 	(void)reportType;
 	if (itf != 0 || report == nullptr || len == 0 ||
-		len != reportHID->getLength() || report[0] != 1) {
+		!reportHID || report[0] != 1) {
 		return; // Ignore HID command replies and other report types.
 	}
 	hidReportDiag.transferFailed++;
@@ -280,7 +280,7 @@ std::string FFBHIDMain::getHidUsbDiagnostics(){
 
 	std::string buf(384, '\\0');
 	const int written = snprintf(buf.data(), buf.size(),
-		"1,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%u,%u",
+		"1,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%u,%u",
 		(unsigned long)now,
 		(unsigned long)hidReportDiag.endpointNotReady,
 		(unsigned long)hidReportDiag.submitAttempts,
