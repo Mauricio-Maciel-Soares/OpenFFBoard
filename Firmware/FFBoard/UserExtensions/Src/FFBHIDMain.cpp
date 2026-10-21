@@ -10,6 +10,8 @@
 #include "hid_device.h"
 #include "tusb.h"
 #include "usb_hid_ffb_desc.h"
+#include <cstdio>
+#include <cstring>
 
 #include "cmsis_os.h"
 extern osThreadId_t defaultTaskHandle;
@@ -172,22 +174,23 @@ bool FFBHIDMain::getFfbActive(){
  * Sends periodic gamepad reports of buttons and analog axes
  */
 void FFBHIDMain::send_report(){
-	// Check if HID command interface wants to send something and allow that if we did not skip too many reports
-	if(!tud_hid_n_ready(0) ||  ((reportSendCounter++ < usb_report_rate*2) && this->hidCommands->waitingToSend())){
+	const uint32_t now = HAL_GetTick();
+
+	// HID commands share interface 0 with the gamepad report. Give queued
+	// command replies a short opportunity to use the endpoint first.
+	if(!tud_hid_n_ready(0)){
+		hidReportDiag.endpointNotReady++;
+		hidReportDiag.lastNotReadyMs = now;
 		return;
 	}
-	//Try semaphore
-//	if(!sourcesSem.Take(10)){
-//		return;
-//	}
+	if ((reportSendCounter++ < usb_report_rate*2) && this->hidCommands->waitingToSend()) {
+		return;
+	}
 
-	// Read buttons
+	// Read buttons and current axis position into the active report buffer.
 	uint64_t b = 0;
 	SelectableInputs::getButtonValues(b);
 	reportHID->setButtons(b);
-
-	// Encoder
-	//axes_manager->addAxesToReport(analogAxesReport, &count);
 
 	std::vector<int32_t>* axes = axes_manager->getAxisValues();
 	uint8_t count = 0;
@@ -197,39 +200,111 @@ void FFBHIDMain::send_report(){
 		}else{
 			val = val >> (32-HIDAXISRES_32B_BITS); // Scale if less than 32b
 		}
-		//setHidReportAxis(&reportHID,count++,val);
 		reportHID->setHidReportAxis(count++, val);
 	}
 
-	// Fill remaining values with analog inputs
 	axes = SelectableInputs::getAnalogValues();
 	for(int32_t val : *axes){
 		if(count >= analogAxisCount)
 			break;
 		if((count < MAX_AXIS) && hidAxis32b)
-			val = val << (HIDAXISRES_32B_BITS-16); // Shift up 16 bit to fill 32b value. Primary axis is 32b
+			val = val << (HIDAXISRES_32B_BITS-16); // Scale up to the configured 32b axis resolution
 		reportHID->setHidReportAxis(count++, val);
 	}
 
-//	sourcesSem.Give();
-	// Fill rest
 	for(;count<analogAxisCount; count++){
-		//setHidReportAxis(&reportHID,count,0);
 		reportHID->setHidReportAxis(count, 0);
 	}
 
-
-	/*
-	 * Only send a new report if actually changed since last time or timeout and hid is ready
-	 */
-	if( (reportSendCounter > 100/usb_report_rate || reportHID->changed()) )
-	{
-		tud_hid_report(0, reportHID->getBuffer(), reportHID->getLength());
-		reportHID->swap(); // Report has changed and was sent. Swap buffers.
-		reportSendCounter = 0;
+	// A changed report is sent immediately; unchanged reports are refreshed
+	// periodically. Do not swap buffers unless TinyUSB accepts the transfer.
+	if ((reportSendCounter > 100/usb_report_rate || reportHID->changed())) {
+		hidReportDiag.submitAttempts++;
+		hidReportDiag.lastAttemptMs = now;
+		if (tud_hid_report(0, reportHID->getBuffer(), reportHID->getLength())) {
+			hidReportDiag.submitAccepted++;
+			hidReportDiag.lastAcceptedMs = now;
+			hidReportDiag.pendingSinceMs = now;
+			hidReportDiag.transferPending = true;
+			hidReportRetryPending = false;
+			reportHID->swap();
+			reportSendCounter = 0;
+		} else {
+			// Keep the active report buffer selected. The next update will
+			// retry with the latest position/inputs instead of discarding it.
+			hidReportDiag.submitRejected++;
+			hidReportDiag.lastFailureMs = now;
+			hidReportRetryPending = true;
+		}
 	}
-
 }
+
+/**
+ * HID report-transfer callbacks are used to tell an accepted transfer from a
+ * report that actually completed on USB. The user-visible diagnosis command
+ * includes ages rather than absolute ticks, so counter wraparound is harmless.
+ */
+void FFBHIDMain::transferComplete(uint8_t itf, uint8_t const* report, uint16_t len){
+	if (itf != 0 || report == nullptr || len == 0 ||
+		len != reportHID->getLength() || report[0] != 1) {
+		return; // Ignore HID command replies and other report types.
+	}
+	hidReportDiag.transferCompleted++;
+	hidReportDiag.lastCompletedMs = HAL_GetTick();
+	hidReportDiag.transferPending = false;
+	hidReportDiag.pendingSinceMs = 0;
+}
+
+void FFBHIDMain::transferFailed(uint8_t itf, uint8_t reportType, uint8_t const* report, uint16_t len){
+	(void)reportType;
+	if (itf != 0 || report == nullptr || len == 0 ||
+		len != reportHID->getLength() || report[0] != 1) {
+		return; // Ignore HID command replies and other report types.
+	}
+	hidReportDiag.transferFailed++;
+	hidReportDiag.lastFailureMs = HAL_GetTick();
+	hidReportDiag.transferPending = false;
+	hidReportDiag.pendingSinceMs = 0;
+	hidReportRetryPending = true;
+}
+
+std::string FFBHIDMain::getHidUsbDiagnostics(){
+	const uint32_t now = HAL_GetTick();
+	const uint32_t never = UINT32_MAX;
+	const uint32_t ageNotReady = hidReportDiag.endpointNotReady ? now - hidReportDiag.lastNotReadyMs : never;
+	const uint32_t ageAttempt = hidReportDiag.submitAttempts ? now - hidReportDiag.lastAttemptMs : never;
+	const uint32_t ageAccepted = hidReportDiag.submitAccepted ? now - hidReportDiag.lastAcceptedMs : never;
+	const uint32_t ageCompleted = hidReportDiag.transferCompleted ? now - hidReportDiag.lastCompletedMs : never;
+	const uint32_t ageFailure = (hidReportDiag.submitRejected || hidReportDiag.transferFailed) ? now - hidReportDiag.lastFailureMs : never;
+	const uint32_t pendingAge = hidReportDiag.transferPending ? now - hidReportDiag.pendingSinceMs : 0;
+
+	std::string buf(384, '\\0');
+	const int written = snprintf(buf.data(), buf.size(),
+		"1,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%u,%u",
+		(unsigned long)now,
+		(unsigned long)hidReportDiag.endpointNotReady,
+		(unsigned long)hidReportDiag.submitAttempts,
+		(unsigned long)hidReportDiag.submitAccepted,
+		(unsigned long)hidReportDiag.submitRejected,
+		(unsigned long)hidReportDiag.transferCompleted,
+		(unsigned long)hidReportDiag.transferFailed,
+		(unsigned long)ageNotReady,
+		(unsigned long)ageAttempt,
+		(unsigned long)ageAccepted,
+		(unsigned long)ageCompleted,
+		(unsigned long)ageFailure,
+		(unsigned long)pendingAge,
+		(unsigned long)hidReportDiag.suspendEvents,
+		(unsigned long)hidReportDiag.resumeEvents,
+		(unsigned)hidReportDiag.transferPending,
+		(unsigned)hidReportRetryPending);
+	if (written < 0) {
+		return "ERR";
+	}
+	buf.resize((size_t)written < buf.size() ? (size_t)written : buf.size() - 1);
+	return buf;
+}
+
 
 /**
  * Returns current FFB update loop frequency in Hz
