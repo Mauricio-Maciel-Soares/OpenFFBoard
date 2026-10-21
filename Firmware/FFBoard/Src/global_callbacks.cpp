@@ -15,6 +15,7 @@
 #include "constants.h"
 
 #include "UsbHidHandler.h"
+#include "hid_device.h" // Ensure TinyUSB callbacks use the declared C-linkage signatures
 #include "PersistentStorage.h"
 #include "ExtiHandler.h"
 #include "UartHandler.h"
