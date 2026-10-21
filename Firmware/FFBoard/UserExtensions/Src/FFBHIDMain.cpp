@@ -221,12 +221,15 @@ void FFBHIDMain::send_report(){
 	if ((reportSendCounter > 100/usb_report_rate || reportHID->changed() || hidReportRetryPending)) {
 		hidReportDiag.submitAttempts++;
 		hidReportDiag.lastAttemptMs = now;
+		hidReportDiag.pendingSinceMs = now;
+		hidReportDiag.transferPending = true;
+		hidReportRetryPending = false;
+
 		if (tud_hid_report(0, reportHID->getBuffer(), reportHID->getLength())) {
+			// Completion/failure callbacks may run before this code continues,
+			// so do not set transferPending/retry flags again after submission.
 			hidReportDiag.submitAccepted++;
 			hidReportDiag.lastAcceptedMs = now;
-			hidReportDiag.pendingSinceMs = now;
-			hidReportDiag.transferPending = true;
-			hidReportRetryPending = false;
 			reportHID->swap();
 			reportSendCounter = 0;
 		} else {
@@ -234,6 +237,8 @@ void FFBHIDMain::send_report(){
 			// retry with the latest position/inputs instead of discarding it.
 			hidReportDiag.submitRejected++;
 			hidReportDiag.lastFailureMs = now;
+			hidReportDiag.transferPending = false;
+			hidReportDiag.pendingSinceMs = 0;
 			hidReportRetryPending = true;
 		}
 	}
@@ -245,6 +250,7 @@ void FFBHIDMain::send_report(){
  * includes ages rather than absolute ticks, so counter wraparound is harmless.
  */
 void FFBHIDMain::transferComplete(uint8_t itf, uint8_t const* report, uint16_t len){
+	(void)len;
 	if (itf != 0 || report == nullptr ||
 		!reportHID || report[0] != 1) {
 		return; // Ignore HID command replies and other report types.
@@ -257,7 +263,8 @@ void FFBHIDMain::transferComplete(uint8_t itf, uint8_t const* report, uint16_t l
 
 void FFBHIDMain::transferFailed(uint8_t itf, uint8_t reportType, uint8_t const* report, uint16_t len){
 	(void)reportType;
-	if (itf != 0 || report == nullptr || len == 0 ||
+	(void)len;
+	if (itf != 0 || report == nullptr ||
 		!reportHID || report[0] != 1) {
 		return; // Ignore HID command replies and other report types.
 	}
