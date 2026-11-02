@@ -25,6 +25,7 @@ void FFBHIDMain::registerCommands(){
 	registerCommand("hidrate", FFBWheel_commands::hidrate, "Get estimated effect update speed",CMDFLAG_GET);
 	registerCommand("cfrate", FFBWheel_commands::cfrate, "Get estimated const force rate",CMDFLAG_GET);
 	registerCommand("hidsendspd", FFBWheel_commands::hidsendspd, "Change HID gamepad update rate",CMDFLAG_GET|CMDFLAG_SET|CMDFLAG_INFOSTRING);
+	registerCommand("hidusbdiag", FFBWheel_commands::hidusbdiag, "USB HID gamepad transfer diagnostics (CSV v1; see firmware source for field order)",CMDFLAG_GET);
 
 	registerCommand("estop", FFBWheel_commands::estop, "Emergency stop",CMDFLAG_GET|CMDFLAG_SET);
 }
@@ -109,6 +110,13 @@ CommandStatus FFBHIDMain::command(const ParsedCommand& cmd,std::vector<CommandRe
 			setReportRate(cmd.val);
 		}else if(cmd.type == CMDtype::info){
 			replies.emplace_back(usb_report_rates_names());
+		}
+		break;
+	case FFBWheel_commands::hidusbdiag:
+		if(cmd.type == CMDtype::get){
+			replies.emplace_back(this->getHidUsbDiagnostics());
+		}else{
+			return CommandStatus::ERR;
 		}
 		break;
 	case FFBWheel_commands::axes: // Dummy for compatibility. remove later

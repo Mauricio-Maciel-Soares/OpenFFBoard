@@ -24,7 +24,8 @@ public:
 	static void setHidDesc(const uint8_t* desc);
 	static const uint8_t* getHidDesc();
 	static uint8_t* hid_desc;
-	void transferComplete(uint8_t itf, uint8_t const* report, uint8_t len){};
+	virtual void transferComplete(uint8_t itf, uint8_t const* report, uint16_t len){};
+	virtual void transferFailed(uint8_t itf, uint8_t reportType, uint8_t const* report, uint16_t len){};
 
 };
 
