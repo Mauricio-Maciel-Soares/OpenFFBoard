@@ -27,6 +27,7 @@
 #include "TorqueSlewLimiter.h"
 #include "VelocityContinuity.h"
 #include "AxisSlewProfiles.h"
+#include "SlewTrace.h"
 
 #define INTERNAL_AXIS_DAMPER_SCALER 0.7
 #define INTERNAL_AXIS_FRICTION_SCALER 0.7
@@ -100,7 +101,7 @@ enum class Axis_commands : uint32_t{
 	power=0x00,degrees=0x01,esgain,zeroenc,invert,idlespring,axisdamper,enctype,drvtype,
 	pos,maxspeed,maxtorquerate,fxratio,curtorque,curpos,curspd,curaccel,reductionScaler,
 	filterSpeed, filterAccel, filterProfileId,cpr,axisfriction,axisinertia,
-	expo,exposcale,diag,encvel,diag2,slewprofile,slewslot,slewvalid,slewmode,slewup,slewdown,slewstats,slewstatsreset,diag3
+	expo,exposcale,diag,encvel,diag2,slewprofile,slewslot,slewvalid,slewmode,slewup,slewdown,slewstats,slewstatsreset,diag3,slewtrace,slewtracestart,slewtracestop
 };
 
 class Axis : public PersistentStorage, public CommandHandler, public ErrorHandler
@@ -243,6 +244,8 @@ private:
 	CommandStatus setSlewDown(int64_t value);
 	bool commitSlewSettings(const AxisSlewSettings& settings);
 	bool slewStatsResetPending = false;
+	SlewTrace slewTrace;
+	SlewTraceSample pendingSlewTraceSample;
 	float speedLimiterP = AXIS_SPEEDLIMITER_P;
 	float speedLimiterI = AXIS_SPEEDLIMITER_I;
 
