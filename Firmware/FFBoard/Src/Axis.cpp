@@ -1268,7 +1268,7 @@ CommandStatus Axis::command(const ParsedCommand& cmd,std::vector<CommandReply>& 
 				const SlewTraceSample& v = samples[i];
 				char line[192];
 				const int n = snprintf(line, sizeof(line),
-					"\\n%lu,%lu,%lu,%lu,%lu,%ld,%ld,%ld,%ld,%ld,%lu,%u,%u,%u",
+					"\n%lu,%lu,%lu,%lu,%lu,%ld,%ld,%ld,%ld,%ld,%lu,%u,%u,%u",
 					(unsigned long)v.sequence, (unsigned long)v.timeUs,
 					(unsigned long)v.dtRawUs, (unsigned long)v.dtUsedUs,
 					(unsigned long)v.nominalPeriodUs, (long)v.previousOutput,
