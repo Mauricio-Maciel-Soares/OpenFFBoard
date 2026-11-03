@@ -1079,16 +1079,26 @@ CommandStatus Axis::command(const ParsedCommand& cmd,std::vector<CommandReply>& 
 
 	case Axis_commands::diag:
 	case Axis_commands::diag2:
+	case Axis_commands::diag3:
 	{
 		if (cmd.type != CMDtype::get) return CommandStatus::ERR;
 		cpp_freertos::CriticalSection::Enter();
 		const AxisDiagnostics d = diagnostics;
 		cpp_freertos::CriticalSection::Exit();
-		const bool extended = cmd.cmdId == static_cast<uint32_t>(Axis_commands::diag2);
+		const bool extended = cmd.cmdId == static_cast<uint32_t>(Axis_commands::diag2) || cmd.cmdId == static_cast<uint32_t>(Axis_commands::diag3);
+		const bool slewExtended = cmd.cmdId == static_cast<uint32_t>(Axis_commands::diag3);
+		AxisSlewSettings slewSnapshot;
+		uint32_t fallbackRate = 0;
+		if (slewExtended) {
+			cpp_freertos::CriticalSection::Enter();
+			slewSnapshot = slewSettings;
+			fallbackRate = maxTorqueRateMS;
+			cpp_freertos::CriticalSection::Exit();
+		}
 		std::string buf(640, '\0');
 		snprintf(buf.data(), buf.size(),
 			"%u,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%ld,%ld,%ld,%ld,%.6g,%.6g,%.6g,%.6g,%u,%u,%u",
-			extended ? 2U : 1U,
+			slewExtended ? 3U : (extended ? 2U : 1U),
 			(unsigned long)d.sequence, (unsigned long)d.timeUs, (unsigned long)d.dtUs,
 			(unsigned long)(d.minDtUs == UINT32_MAX ? 0 : d.minDtUs), (unsigned long)d.maxDtUs,
 			(unsigned long)d.clipped, (unsigned long)d.limited,
@@ -1102,6 +1112,16 @@ CommandStatus Axis::command(const ParsedCommand& cmd,std::vector<CommandReply>& 
 				(unsigned long)d.timing.minUs, (unsigned long)d.timing.maxUs,
 				(unsigned long)d.sourceSwitches, (unsigned)d.velocityTransition,
 				(unsigned)slewSettings.active, (unsigned long)maxTorqueRateMS);
+			if (slewExtended) {
+				const size_t used2 = strlen(buf.c_str());
+				snprintf(buf.data() + used2, buf.size() - used2, ",%u,%lu,%lu,%lu,%lu,%lu,%llu",
+					(unsigned)slewSnapshot.asymmetric,
+					(unsigned long)slewSnapshot.torqueRiseRate,
+					(unsigned long)slewSnapshot.torqueFallRate,
+					(unsigned long)fallbackRate,
+					(unsigned long)d.clipped, (unsigned long)d.limited,
+					(unsigned long long)d.slewDeltaCounts);
+			}
 		}
 		buf.resize(strlen(buf.c_str()));
 		replies.emplace_back(buf);
