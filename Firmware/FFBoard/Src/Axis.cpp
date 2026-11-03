@@ -296,7 +296,12 @@ bool Axis::saveAxisTuningSettings(uint32_t rate, bool encoderVelocity){
 bool Axis::commitSlewSettings(const AxisSlewSettings& settings){
 	if (!AxisSlewProfiles::save(flashAddrs.slewProfiles, settings)) return false;
 	if (!AxisSlewProfiles::saveAsymmetric(flashAddrs.slewProfiles, settings)) return false;
-	if (maxTorqueRateMS != settings.maxTorqueRate) torqueSlew.reset();
+	if (maxTorqueRateMS != settings.maxTorqueRate
+		|| slewSettings.asymmetric != settings.asymmetric
+		|| slewSettings.torqueRiseRate != settings.torqueRiseRate
+		|| slewSettings.torqueFallRate != settings.torqueFallRate) {
+		torqueSlew.reset();
+	}
 	slewSettings = settings;
 	maxTorqueRateMS = settings.maxTorqueRate;
 	useEncoderVelocity = settings.encoderVelocity;
