@@ -1110,7 +1110,8 @@ CommandStatus Axis::command(const ParsedCommand& cmd,std::vector<CommandReply>& 
 				(unsigned long)d.timing.count, (double)d.timing.meanUs, (double)d.timing.stddevUs(),
 				(unsigned long)d.timing.minUs, (unsigned long)d.timing.maxUs,
 				(unsigned long)d.sourceSwitches, (unsigned)d.velocityTransition,
-				(unsigned)slewSettings.active, (unsigned long)maxTorqueRateMS);
+				(unsigned)(slewExtended ? slewSnapshot.active : slewSettings.active),
+				(slewExtended ? (unsigned long)fallbackRate : (unsigned long)maxTorqueRateMS));
 			if (slewExtended) {
 				const size_t used2 = strlen(buf.c_str());
 				snprintf(buf.data() + used2, buf.size() - used2, ",%u,%lu,%lu,%lu,%lu,%lu,%llu",
