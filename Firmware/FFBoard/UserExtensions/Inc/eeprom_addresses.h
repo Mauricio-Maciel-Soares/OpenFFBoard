@@ -13,11 +13,11 @@
 
 #include "main.h"
 // Change this to the amount of currently registered variables
-#define NB_OF_VAR 242
+#define NB_OF_VAR 275
 extern const uint16_t VirtAddVarTab[NB_OF_VAR];
 
 // Amount of variables in exportable list
-#define NB_EXPORTABLE_ADR 227
+#define NB_EXPORTABLE_ADR 260
 extern const uint16_t exportableFlashAddresses[NB_EXPORTABLE_ADR];
 
 
@@ -269,6 +269,17 @@ uint16_t EE_ReadVariable(uint16_t VirtAddress, uint16_t* Data) will return 1 if 
 #define ADR_AXIS1_SLEW_B_7 0x470 // Slew profile bank B word 7
 #define ADR_AXIS1_SLEW_B_8 0x471 // Slew profile bank B word 8
 #define ADR_AXIS1_SLEW_SELECT 0x472 // Committed slew profile bank selector
+#define ADR_AXIS1_ASYM_A_UP_LO 0x473 // Asymmetric bank A rise-rate low word
+#define ADR_AXIS1_ASYM_A_UP_HI 0x474 // Asymmetric bank A rise-rate high word
+#define ADR_AXIS1_ASYM_A_DOWN_LO 0x475 // Asymmetric bank A fall-rate low word
+#define ADR_AXIS1_ASYM_A_DOWN_HI 0x476 // Asymmetric bank A fall-rate high word
+#define ADR_AXIS1_ASYM_A_FLAGS 0x477 // Tagged asymmetric mode bank A
+#define ADR_AXIS1_ASYM_B_UP_LO 0x478 // Asymmetric bank B rise-rate low word
+#define ADR_AXIS1_ASYM_B_UP_HI 0x479 // Asymmetric bank B rise-rate high word
+#define ADR_AXIS1_ASYM_B_DOWN_LO 0x47A // Asymmetric bank B fall-rate low word
+#define ADR_AXIS1_ASYM_B_DOWN_HI 0x47B // Asymmetric bank B fall-rate high word
+#define ADR_AXIS1_ASYM_B_FLAGS 0x47C // Tagged asymmetric mode bank B
+#define ADR_AXIS1_ASYM_SELECT 0x47D // Committed asymmetric settings bank selector
 #define ADR_AXIS2_SLEW_A_0 0x480 // Slew profile bank A word 0
 #define ADR_AXIS2_SLEW_A_1 0x481 // Slew profile bank A word 1
 #define ADR_AXIS2_SLEW_A_2 0x482 // Slew profile bank A word 2
@@ -288,6 +299,17 @@ uint16_t EE_ReadVariable(uint16_t VirtAddress, uint16_t* Data) will return 1 if 
 #define ADR_AXIS2_SLEW_B_7 0x490 // Slew profile bank B word 7
 #define ADR_AXIS2_SLEW_B_8 0x491 // Slew profile bank B word 8
 #define ADR_AXIS2_SLEW_SELECT 0x492 // Committed slew profile bank selector
+#define ADR_AXIS2_ASYM_A_UP_LO 0x493 // Asymmetric bank A rise-rate low word
+#define ADR_AXIS2_ASYM_A_UP_HI 0x494 // Asymmetric bank A rise-rate high word
+#define ADR_AXIS2_ASYM_A_DOWN_LO 0x495 // Asymmetric bank A fall-rate low word
+#define ADR_AXIS2_ASYM_A_DOWN_HI 0x496 // Asymmetric bank A fall-rate high word
+#define ADR_AXIS2_ASYM_A_FLAGS 0x497 // Tagged asymmetric mode bank A
+#define ADR_AXIS2_ASYM_B_UP_LO 0x498 // Asymmetric bank B rise-rate low word
+#define ADR_AXIS2_ASYM_B_UP_HI 0x499 // Asymmetric bank B rise-rate high word
+#define ADR_AXIS2_ASYM_B_DOWN_LO 0x49A // Asymmetric bank B fall-rate low word
+#define ADR_AXIS2_ASYM_B_DOWN_HI 0x49B // Asymmetric bank B fall-rate high word
+#define ADR_AXIS2_ASYM_B_FLAGS 0x49C // Tagged asymmetric mode bank B
+#define ADR_AXIS2_ASYM_SELECT 0x49D // Committed asymmetric settings bank selector
 #define ADR_AXIS3_SLEW_A_0 0x4A0 // Slew profile bank A word 0
 #define ADR_AXIS3_SLEW_A_1 0x4A1 // Slew profile bank A word 1
 #define ADR_AXIS3_SLEW_A_2 0x4A2 // Slew profile bank A word 2
@@ -307,4 +329,15 @@ uint16_t EE_ReadVariable(uint16_t VirtAddress, uint16_t* Data) will return 1 if 
 #define ADR_AXIS3_SLEW_B_7 0x4B0 // Slew profile bank B word 7
 #define ADR_AXIS3_SLEW_B_8 0x4B1 // Slew profile bank B word 8
 #define ADR_AXIS3_SLEW_SELECT 0x4B2 // Committed slew profile bank selector
+#define ADR_AXIS3_ASYM_A_UP_LO 0x4B3 // Asymmetric bank A rise-rate low word
+#define ADR_AXIS3_ASYM_A_UP_HI 0x4B4 // Asymmetric bank A rise-rate high word
+#define ADR_AXIS3_ASYM_A_DOWN_LO 0x4B5 // Asymmetric bank A fall-rate low word
+#define ADR_AXIS3_ASYM_A_DOWN_HI 0x4B6 // Asymmetric bank A fall-rate high word
+#define ADR_AXIS3_ASYM_A_FLAGS 0x4B7 // Tagged asymmetric mode bank A
+#define ADR_AXIS3_ASYM_B_UP_LO 0x4B8 // Asymmetric bank B rise-rate low word
+#define ADR_AXIS3_ASYM_B_UP_HI 0x4B9 // Asymmetric bank B rise-rate high word
+#define ADR_AXIS3_ASYM_B_DOWN_LO 0x4BA // Asymmetric bank B fall-rate low word
+#define ADR_AXIS3_ASYM_B_DOWN_HI 0x4BB // Asymmetric bank B fall-rate high word
+#define ADR_AXIS3_ASYM_B_FLAGS 0x4BC // Tagged asymmetric mode bank B
+#define ADR_AXIS3_ASYM_SELECT 0x4BD // Committed asymmetric settings bank selector
 #endif /* EEPROM_ADDRESSES_H_ */

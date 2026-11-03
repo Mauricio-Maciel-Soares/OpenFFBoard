@@ -50,7 +50,7 @@ bool Flash_Write(uint16_t a,uint16_t value){
 void pulseErrLed(){}
 enum class CommandStatus {OK,ERR,NOT_FOUND};
 enum class CMDtype {get,set,getat,setat,other};
-enum class Axis_commands {encvel,maxtorquerate,slewprofile,slewslot,slewvalid};
+enum class Axis_commands {encvel,maxtorquerate,slewprofile,slewslot,slewvalid,slewmode,slewup,slewdown};
 struct ParsedCommand {Axis_commands cmdId;CMDtype type;int64_t val;int64_t adr=0;};
 using CommandReply=int64_t;
 FLASH_ADDRESSES
@@ -71,6 +71,9 @@ struct Axis {
     bool commitSlewSettings(const AxisSlewSettings&);
     CommandStatus setSlewProfile(int64_t);
     CommandStatus setSlewSlot(int64_t,int64_t);
+    CommandStatus setSlewMode(int64_t);
+    CommandStatus setSlewUp(int64_t);
+    CommandStatus setSlewDown(int64_t);
     struct {unsigned resets=0;void reset(){++resets;}} torqueSlew;
     float filter_f=1000;
     struct FilterSetting {float freq=40,q=70;} filterSpeedCst[4],filterAccelCst[4];
@@ -222,6 +225,39 @@ int main(){
         assert(restored.slewSettings.slots[1]==restored.maxTorqueRateMS);
     }
 
+    // Asymmetric settings use a separate two-bank journal and survive reboot.
+    flash.clear();
+    Axis asym;asym.flashAddrs.slewProfiles=ADR_AXIS1_SLEW_A_0;
+    assert(asym.setSlewMode(1)==CommandStatus::OK);
+    assert(asym.setSlewUp(14000)==CommandStatus::OK);
+    assert(asym.setSlewDown(4500)==CommandStatus::OK);
+    Axis asymReboot;asymReboot.flashAddrs.slewProfiles=ADR_AXIS1_SLEW_A_0;
+    asymReboot.restoreAxisTuningSettings();
+    assert(asymReboot.slewSettings.asymmetric);
+    assert(asymReboot.slewSettings.torqueRiseRate==14000 && asymReboot.slewSettings.torqueFallRate==4500);
+
+    const auto asymStable=flash;
+    for(int cut=0;cut<=6;++cut){
+        flash=asymStable;failAfter=cut;cutPower=true;
+        Axis candidate;candidate.flashAddrs.slewProfiles=ADR_AXIS1_SLEW_A_0;
+        candidate.restoreAxisTuningSettings();bool committed=false;
+        try{committed=candidate.setSlewDown(2250)==CommandStatus::OK;}catch(const std::runtime_error&){}
+        failAfter=-1;cutPower=false;
+        Axis restored;restored.flashAddrs.slewProfiles=ADR_AXIS1_SLEW_A_0;
+        restored.restoreAxisTuningSettings();
+        assert(restored.slewSettings.asymmetric && restored.slewSettings.torqueRiseRate==14000);
+        assert(restored.slewSettings.torqueFallRate==(committed?2250U:4500U));
+    }
+
+    // Each axis owns a separate extension record.
+    Axis asymY;asymY.flashAddrs.slewProfiles=ADR_AXIS2_SLEW_A_0;
+    assert(asymY.setSlewUp(900)==CommandStatus::OK);
+    Axis asymZ;asymZ.flashAddrs.slewProfiles=ADR_AXIS3_SLEW_A_0;
+    assert(asymZ.setSlewDown(300)==CommandStatus::OK);
+    asymY.restoreAxisTuningSettings();asymZ.restoreAxisTuningSettings();
+    assert(asymY.slewSettings.torqueRiseRate==900 && asymY.slewSettings.torqueFallRate==0);
+    assert(asymZ.slewSettings.torqueFallRate==300 && asymZ.slewSettings.torqueRiseRate==0);
+
 }
 '''
 
@@ -231,10 +267,10 @@ class PersistenceTests(unittest.TestCase):
         text=(ROOT/'Firmware/FFBoard/Src/Axis.cpp').read_text()
         header=(INC/'Axis.h').read_text()
         cases='\n'.join(text[text.index('case Axis_commands::'+name+':'):text.index('case Axis_commands::'+following+':')]
-                        for name,following in [('encvel','degrees'),('maxtorquerate','fxratio')])
+                        for name,following in [('encvel','slewstats'),('maxtorquerate','fxratio')])
         methods='\n'.join(method(text,signature) for signature in [
             'void Axis::restoreFlash(', 'void Axis::saveFlash(', 'void Axis::restoreAxisTuningSettings(',
-            'bool Axis::saveAxisTuningSettings(', 'CommandStatus Axis::setEncoderVelocity(', 'CommandStatus Axis::setMaxTorqueRate(', 'bool Axis::commitSlewSettings(', 'CommandStatus Axis::setSlewProfile(', 'CommandStatus Axis::setSlewSlot('])
+            'bool Axis::saveAxisTuningSettings(', 'CommandStatus Axis::setEncoderVelocity(', 'CommandStatus Axis::setMaxTorqueRate(', 'bool Axis::commitSlewSettings(', 'CommandStatus Axis::setSlewProfile(', 'CommandStatus Axis::setSlewSlot(', 'CommandStatus Axis::setSlewMode(', 'CommandStatus Axis::setSlewUp(', 'CommandStatus Axis::setSlewDown('])
         program=HARNESS.replace('FLASH_ADDRESSES',method(header,'struct AxisFlashAddrs')+';').replace('COMMAND_CASES',cases).replace('METHODS',methods)
         with tempfile.TemporaryDirectory() as temp:
             d=Path(temp);(d/'main.h').write_text('#pragma once\n');(d/'test.cpp').write_text(program)
@@ -253,6 +289,13 @@ class PersistenceTests(unittest.TestCase):
         names=['TUNING_A_LO','TUNING_A_HI','TUNING_A_FLAGS','TUNING_B_LO','TUNING_B_HI','TUNING_B_FLAGS','TUNING_SELECT']
         for axis,base in [(1,0x30d),(2,0x34d),(3,0x38d)]:
             for offset,name in enumerate(names):
+                entry=next(e for e in entries if e['name']==f'ADR_AXIS{axis}_{name}')
+                self.assertEqual(int(entry['adr'],0),base+offset)
+                self.assertEqual((entry['enable'],entry['export']),('1','1'))
+        asym_names=['ASYM_A_UP_LO','ASYM_A_UP_HI','ASYM_A_DOWN_LO','ASYM_A_DOWN_HI','ASYM_A_FLAGS',
+                    'ASYM_B_UP_LO','ASYM_B_UP_HI','ASYM_B_DOWN_LO','ASYM_B_DOWN_HI','ASYM_B_FLAGS','ASYM_SELECT']
+        for axis,base in [(1,0x473),(2,0x493),(3,0x4b3)]:
+            for offset,name in enumerate(asym_names):
                 entry=next(e for e in entries if e['name']==f'ADR_AXIS{axis}_{name}')
                 self.assertEqual(int(entry['adr'],0),base+offset)
                 self.assertEqual((entry['enable'],entry['export']),('1','1'))

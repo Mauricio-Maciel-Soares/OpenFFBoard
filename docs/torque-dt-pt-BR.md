@@ -23,6 +23,8 @@ O alvo é limitado por `power` antes do slew. A referência é o último comando
 
 O dt é medido novamente no caminho de saída, pelo relógio coerente em microssegundos usado nos três alvos STM32 compilados. A subtração sem sinal trata o rollover de 32 bits. O relógio original dos efeitos e as fórmulas de velocidade, aceleração, damping, filtros, expo e maxspeed não foram alterados.
 
+O modo assimétrico opcional por magnitude está descrito em [torque-asymmetric-pt-BR.md](torque-asymmetric-pt-BR.md). O modo simétrico continua sendo o padrão; no modo assimétrico, inversões de sinal reduzem primeiro a força anterior até zero antes de construir força na polaridade oposta.
+
 ## Inicialização, atrasos e desligamento
 
 - O primeiro cálculo com o limitador ativo apenas estabelece o instante de referência e mantém o último comando. Depois de uma reinicialização do driver, essa referência é zero.

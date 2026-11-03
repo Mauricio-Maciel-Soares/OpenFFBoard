@@ -67,6 +67,8 @@ struct Axis {
     float expo=1,effect_margin_scaler=1,torqueScaler=1;
     uint16_t maxSpeedDegS=0,power=10000;
     uint32_t maxTorqueRateMS=1000;
+    struct {bool asymmetric=false;uint32_t torqueRiseRate=0,torqueFallRate=0;} slewSettings;
+    bool slewStatsResetPending=false;
     TorqueSlewLimiter torqueSlew;
     VelocityContinuity velocityContinuity;
     int32_t lastTorqueCommand=0;

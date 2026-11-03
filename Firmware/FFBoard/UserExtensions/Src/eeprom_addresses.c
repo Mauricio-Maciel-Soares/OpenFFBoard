@@ -251,6 +251,17 @@ const uint16_t VirtAddVarTab[NB_OF_VAR] =
 	ADR_AXIS1_SLEW_B_7, // Slew profile bank B word 7
 	ADR_AXIS1_SLEW_B_8, // Slew profile bank B word 8
 	ADR_AXIS1_SLEW_SELECT, // Committed slew profile bank selector
+	ADR_AXIS1_ASYM_A_UP_LO, // Asymmetric bank A rise-rate low word
+	ADR_AXIS1_ASYM_A_UP_HI, // Asymmetric bank A rise-rate high word
+	ADR_AXIS1_ASYM_A_DOWN_LO, // Asymmetric bank A fall-rate low word
+	ADR_AXIS1_ASYM_A_DOWN_HI, // Asymmetric bank A fall-rate high word
+	ADR_AXIS1_ASYM_A_FLAGS, // Tagged asymmetric mode bank A
+	ADR_AXIS1_ASYM_B_UP_LO, // Asymmetric bank B rise-rate low word
+	ADR_AXIS1_ASYM_B_UP_HI, // Asymmetric bank B rise-rate high word
+	ADR_AXIS1_ASYM_B_DOWN_LO, // Asymmetric bank B fall-rate low word
+	ADR_AXIS1_ASYM_B_DOWN_HI, // Asymmetric bank B fall-rate high word
+	ADR_AXIS1_ASYM_B_FLAGS, // Tagged asymmetric mode bank B
+	ADR_AXIS1_ASYM_SELECT, // Committed asymmetric settings bank selector
 	ADR_AXIS2_SLEW_A_0, // Slew profile bank A word 0
 	ADR_AXIS2_SLEW_A_1, // Slew profile bank A word 1
 	ADR_AXIS2_SLEW_A_2, // Slew profile bank A word 2
@@ -270,6 +281,17 @@ const uint16_t VirtAddVarTab[NB_OF_VAR] =
 	ADR_AXIS2_SLEW_B_7, // Slew profile bank B word 7
 	ADR_AXIS2_SLEW_B_8, // Slew profile bank B word 8
 	ADR_AXIS2_SLEW_SELECT, // Committed slew profile bank selector
+	ADR_AXIS2_ASYM_A_UP_LO, // Asymmetric bank A rise-rate low word
+	ADR_AXIS2_ASYM_A_UP_HI, // Asymmetric bank A rise-rate high word
+	ADR_AXIS2_ASYM_A_DOWN_LO, // Asymmetric bank A fall-rate low word
+	ADR_AXIS2_ASYM_A_DOWN_HI, // Asymmetric bank A fall-rate high word
+	ADR_AXIS2_ASYM_A_FLAGS, // Tagged asymmetric mode bank A
+	ADR_AXIS2_ASYM_B_UP_LO, // Asymmetric bank B rise-rate low word
+	ADR_AXIS2_ASYM_B_UP_HI, // Asymmetric bank B rise-rate high word
+	ADR_AXIS2_ASYM_B_DOWN_LO, // Asymmetric bank B fall-rate low word
+	ADR_AXIS2_ASYM_B_DOWN_HI, // Asymmetric bank B fall-rate high word
+	ADR_AXIS2_ASYM_B_FLAGS, // Tagged asymmetric mode bank B
+	ADR_AXIS2_ASYM_SELECT, // Committed asymmetric settings bank selector
 	ADR_AXIS3_SLEW_A_0, // Slew profile bank A word 0
 	ADR_AXIS3_SLEW_A_1, // Slew profile bank A word 1
 	ADR_AXIS3_SLEW_A_2, // Slew profile bank A word 2
@@ -289,6 +311,17 @@ const uint16_t VirtAddVarTab[NB_OF_VAR] =
 	ADR_AXIS3_SLEW_B_7, // Slew profile bank B word 7
 	ADR_AXIS3_SLEW_B_8, // Slew profile bank B word 8
 	ADR_AXIS3_SLEW_SELECT, // Committed slew profile bank selector
+	ADR_AXIS3_ASYM_A_UP_LO, // Asymmetric bank A rise-rate low word
+	ADR_AXIS3_ASYM_A_UP_HI, // Asymmetric bank A rise-rate high word
+	ADR_AXIS3_ASYM_A_DOWN_LO, // Asymmetric bank A fall-rate low word
+	ADR_AXIS3_ASYM_A_DOWN_HI, // Asymmetric bank A fall-rate high word
+	ADR_AXIS3_ASYM_A_FLAGS, // Tagged asymmetric mode bank A
+	ADR_AXIS3_ASYM_B_UP_LO, // Asymmetric bank B rise-rate low word
+	ADR_AXIS3_ASYM_B_UP_HI, // Asymmetric bank B rise-rate high word
+	ADR_AXIS3_ASYM_B_DOWN_LO, // Asymmetric bank B fall-rate low word
+	ADR_AXIS3_ASYM_B_DOWN_HI, // Asymmetric bank B fall-rate high word
+	ADR_AXIS3_ASYM_B_FLAGS, // Tagged asymmetric mode bank B
+	ADR_AXIS3_ASYM_SELECT, // Committed asymmetric settings bank selector
 };
 
 /**		
@@ -530,6 +563,17 @@ const uint16_t exportableFlashAddresses[NB_EXPORTABLE_ADR] =
 	ADR_AXIS1_SLEW_B_7, // Slew profile bank B word 7
 	ADR_AXIS1_SLEW_B_8, // Slew profile bank B word 8
 	ADR_AXIS1_SLEW_SELECT, // Committed slew profile bank selector
+	ADR_AXIS1_ASYM_A_UP_LO, // Asymmetric bank A rise-rate low word
+	ADR_AXIS1_ASYM_A_UP_HI, // Asymmetric bank A rise-rate high word
+	ADR_AXIS1_ASYM_A_DOWN_LO, // Asymmetric bank A fall-rate low word
+	ADR_AXIS1_ASYM_A_DOWN_HI, // Asymmetric bank A fall-rate high word
+	ADR_AXIS1_ASYM_A_FLAGS, // Tagged asymmetric mode bank A
+	ADR_AXIS1_ASYM_B_UP_LO, // Asymmetric bank B rise-rate low word
+	ADR_AXIS1_ASYM_B_UP_HI, // Asymmetric bank B rise-rate high word
+	ADR_AXIS1_ASYM_B_DOWN_LO, // Asymmetric bank B fall-rate low word
+	ADR_AXIS1_ASYM_B_DOWN_HI, // Asymmetric bank B fall-rate high word
+	ADR_AXIS1_ASYM_B_FLAGS, // Tagged asymmetric mode bank B
+	ADR_AXIS1_ASYM_SELECT, // Committed asymmetric settings bank selector
 	ADR_AXIS2_SLEW_A_0, // Slew profile bank A word 0
 	ADR_AXIS2_SLEW_A_1, // Slew profile bank A word 1
 	ADR_AXIS2_SLEW_A_2, // Slew profile bank A word 2
@@ -549,6 +593,17 @@ const uint16_t exportableFlashAddresses[NB_EXPORTABLE_ADR] =
 	ADR_AXIS2_SLEW_B_7, // Slew profile bank B word 7
 	ADR_AXIS2_SLEW_B_8, // Slew profile bank B word 8
 	ADR_AXIS2_SLEW_SELECT, // Committed slew profile bank selector
+	ADR_AXIS2_ASYM_A_UP_LO, // Asymmetric bank A rise-rate low word
+	ADR_AXIS2_ASYM_A_UP_HI, // Asymmetric bank A rise-rate high word
+	ADR_AXIS2_ASYM_A_DOWN_LO, // Asymmetric bank A fall-rate low word
+	ADR_AXIS2_ASYM_A_DOWN_HI, // Asymmetric bank A fall-rate high word
+	ADR_AXIS2_ASYM_A_FLAGS, // Tagged asymmetric mode bank A
+	ADR_AXIS2_ASYM_B_UP_LO, // Asymmetric bank B rise-rate low word
+	ADR_AXIS2_ASYM_B_UP_HI, // Asymmetric bank B rise-rate high word
+	ADR_AXIS2_ASYM_B_DOWN_LO, // Asymmetric bank B fall-rate low word
+	ADR_AXIS2_ASYM_B_DOWN_HI, // Asymmetric bank B fall-rate high word
+	ADR_AXIS2_ASYM_B_FLAGS, // Tagged asymmetric mode bank B
+	ADR_AXIS2_ASYM_SELECT, // Committed asymmetric settings bank selector
 	ADR_AXIS3_SLEW_A_0, // Slew profile bank A word 0
 	ADR_AXIS3_SLEW_A_1, // Slew profile bank A word 1
 	ADR_AXIS3_SLEW_A_2, // Slew profile bank A word 2
@@ -568,4 +623,15 @@ const uint16_t exportableFlashAddresses[NB_EXPORTABLE_ADR] =
 	ADR_AXIS3_SLEW_B_7, // Slew profile bank B word 7
 	ADR_AXIS3_SLEW_B_8, // Slew profile bank B word 8
 	ADR_AXIS3_SLEW_SELECT, // Committed slew profile bank selector
+	ADR_AXIS3_ASYM_A_UP_LO, // Asymmetric bank A rise-rate low word
+	ADR_AXIS3_ASYM_A_UP_HI, // Asymmetric bank A rise-rate high word
+	ADR_AXIS3_ASYM_A_DOWN_LO, // Asymmetric bank A fall-rate low word
+	ADR_AXIS3_ASYM_A_DOWN_HI, // Asymmetric bank A fall-rate high word
+	ADR_AXIS3_ASYM_A_FLAGS, // Tagged asymmetric mode bank A
+	ADR_AXIS3_ASYM_B_UP_LO, // Asymmetric bank B rise-rate low word
+	ADR_AXIS3_ASYM_B_UP_HI, // Asymmetric bank B rise-rate high word
+	ADR_AXIS3_ASYM_B_DOWN_LO, // Asymmetric bank B fall-rate low word
+	ADR_AXIS3_ASYM_B_DOWN_HI, // Asymmetric bank B fall-rate high word
+	ADR_AXIS3_ASYM_B_FLAGS, // Tagged asymmetric mode bank B
+	ADR_AXIS3_ASYM_SELECT, // Committed asymmetric settings bank selector
 };
