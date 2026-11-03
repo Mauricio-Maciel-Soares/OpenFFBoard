@@ -41,6 +41,17 @@ A escolha entre subida e descida é feita pela magnitude absoluta do torque, nã
 
 `axis.0.slewstatsreset` solicita a limpeza no próximo ciclo FFB. O comando não altera o histórico do limitador, a saída de torque ou o driver.
 
+### Snapshot integrado diag3
+
+`axis.0.diag3?` preserva os campos de `diag2` e acrescenta
+`slew_mode,slew_up_counts_ms,slew_down_counts_ms,slew_fallback_counts_ms,
+slew_power_clip_updates,slew_limited_updates,slew_delta_counts`.
+Configuração, fallback e estatísticas são copiados na mesma seção crítica,
+para que o PC receba um snapshot coerente. Os comandos antigos `diag`,
+`diag2` e `slewstats` continuam disponíveis e seus formatos não mudam.
+O novo ID de comando foi acrescentado ao fim do enum para preservar os IDs
+já publicados.
+
 ## Persistência
 
 As taxas e o modo são armazenados por eixo em 11 endereços novos e reservados, separados do registro de perfis existente. O armazenamento de extensão usa dois bancos e um seletor de commit; uma gravação interrompida antes do seletor mantém o banco anterior. Os endereços e dados legados não são remapeados.
