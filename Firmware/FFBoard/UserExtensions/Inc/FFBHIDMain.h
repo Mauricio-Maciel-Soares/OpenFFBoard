@@ -39,7 +39,7 @@ class FFBHIDMain: public FFBoardMain, public cpp_freertos::Thread, PersistentSto
 #endif
 {
 	enum class FFBWheel_commands : uint32_t{
-		ffbactive,axes,btntypes,lsbtn,addbtn,aintypes,lsain,addain,hidrate,hidsendspd,estop,cfrate
+		ffbactive,axes,btntypes,lsbtn,addbtn,aintypes,lsain,addain,hidrate,hidsendspd,estop,cfrate,hidusbdiag
 	};
 
 public:
@@ -83,6 +83,9 @@ public:
 #endif
 
 	float getCurFFBFreq();
+	std::string getHidUsbDiagnostics();
+	void transferComplete(uint8_t itf, uint8_t const* report, uint16_t len) override;
+	void transferFailed(uint8_t itf, uint8_t reportType, uint8_t const* report, uint16_t len) override;
 
 	void update() override;
 
@@ -143,6 +146,25 @@ private:
 	std::unique_ptr<HID_GamepadReport_base> reportHID;
 
 	uint8_t reportSendCounter = 0;
+
+	struct HIDReportDiagnostics {
+		volatile uint32_t endpointNotReady = 0;
+		volatile uint32_t submitAttempts = 0;
+		volatile uint32_t submitAccepted = 0;
+		volatile uint32_t submitRejected = 0;
+		volatile uint32_t transferCompleted = 0;
+		volatile uint32_t transferFailed = 0;
+		volatile uint32_t lastNotReadyMs = 0;
+		volatile uint32_t lastAttemptMs = 0;
+		volatile uint32_t lastAcceptedMs = 0;
+		volatile uint32_t lastCompletedMs = 0;
+		volatile uint32_t lastFailureMs = 0;
+		volatile uint32_t pendingSinceMs = 0;
+		volatile uint32_t suspendEvents = 0;
+		volatile uint32_t resumeEvents = 0;
+		volatile bool transferPending = false;
+	} hidReportDiag;
+	volatile bool hidReportRetryPending = false;
 
 	const uint8_t analogAxisCount = 8;
 	//HID_CommandInterface hidCommands; // Enables full HID control

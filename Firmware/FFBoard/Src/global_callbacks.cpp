@@ -15,6 +15,7 @@
 #include "constants.h"
 
 #include "UsbHidHandler.h"
+#include "hid_device.h" // Ensure TinyUSB callbacks use the declared C-linkage signatures
 #include "PersistentStorage.h"
 #include "ExtiHandler.h"
 #include "UartHandler.h"
@@ -310,16 +311,28 @@ void tud_cdc_tx_complete_cb(uint8_t itf){
  * HID Out and Set Feature
  */
 void tud_hid_set_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t report_type, uint8_t const* buffer, uint16_t bufsize){
-	if((report_type == HID_REPORT_TYPE_INVALID || report_type == HID_REPORT_TYPE_OUTPUT) && report_id == 0){
-		report_id = *buffer;
+	if(buffer == nullptr || bufsize == 0) return;
+	const bool output = report_type == HID_REPORT_TYPE_INVALID || report_type == HID_REPORT_TYPE_OUTPUT;
+	uint8_t normalized[CFG_TUD_HID_EP_BUFSIZE + 1];
+	if(output){
+		if(report_id == 0){
+			// Interrupt OUT includes its ID. TinyUSB strips it for control SET_REPORT.
+			report_id = buffer[0];
+		}else{
+			if(bufsize > CFG_TUD_HID_EP_BUFSIZE) return;
+			normalized[0] = report_id;
+			memcpy(normalized + 1, buffer, bufsize);
+			buffer = normalized;
+			++bufsize;
+		}
 	}
 
-	if(UsbHidHandler::globalHidHandler!=nullptr)
-		UsbHidHandler::globalHidHandler->hidOut(report_id,report_type,buffer,bufsize);
+	if(UsbHidHandler::globalHidHandler != nullptr)
+		UsbHidHandler::globalHidHandler->hidOut(report_id, report_type, buffer, bufsize);
 
-	if(report_id == HID_ID_HIDCMD){
+	if(output && report_id == HID_ID_HIDCMD && bufsize >= sizeof(HID_CMD_Data_t)){
 		if(HID_CommandInterface::globalInterface != nullptr)
-			HID_CommandInterface::globalInterface->hidCmdCallback((HID_CMD_Data_t*)(buffer));
+			HID_CommandInterface::globalInterface->hidCmdCallback((HID_CMD_Data_t*)buffer);
 	}
 
 
@@ -337,12 +350,18 @@ uint16_t tud_hid_get_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t
 /**
  * HID transfer complete
  */
-void tud_hid_report_complete_cb(uint8_t itf, uint8_t const* report, uint8_t len){
+void tud_hid_report_complete_cb(uint8_t itf, uint8_t const* report, uint16_t len){
 	if(HID_CommandInterface::globalInterface != nullptr){
-		HID_CommandInterface::globalInterface->transferComplete(itf, report, len);
+		HID_CommandInterface::globalInterface->transferComplete(itf, report, static_cast<uint8_t>(len));
 	}
 	if(UsbHidHandler::globalHidHandler != nullptr){
 		UsbHidHandler::globalHidHandler->transferComplete(itf, report, len);
+	}
+}
+
+void tud_hid_report_failed_cb(uint8_t itf, hid_report_type_t report_type, uint8_t const* report, uint16_t xferred_bytes){
+	if(UsbHidHandler::globalHidHandler != nullptr){
+		UsbHidHandler::globalHidHandler->transferFailed(itf, static_cast<uint8_t>(report_type), report, xferred_bytes);
 	}
 }
 

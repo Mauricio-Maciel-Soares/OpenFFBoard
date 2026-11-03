@@ -98,3 +98,5 @@ A unified command system supporting different interfaces is available and recomm
 Some parts of this software may contain third party libraries and source code licenced under different terms.
 The license applying to these files is found in the header of the file.
 For all other parts in the `Firmware/FFBoard` folder the LICENSE file applies.
+
+Custom firmware: [torque/current study, CAN timing and persistent slew profiles (Português)](docs/torque-study-pt-BR.md).

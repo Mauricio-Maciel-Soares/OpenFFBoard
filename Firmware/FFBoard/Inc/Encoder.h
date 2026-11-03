@@ -37,6 +37,9 @@ public:
 
 	virtual int32_t getPos();
 	virtual float getPos_f();
+	// Optional fresh velocity estimate in turns/s, in the same direction as position.
+	// Return false when unsupported or stale; callers retain position differentiation.
+	virtual bool getVelocity_f(float& velocity) { (void)velocity; return false; }
 
 	virtual int32_t getPosAbs();
 	virtual float getPosAbs_f();

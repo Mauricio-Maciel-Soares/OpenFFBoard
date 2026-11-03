@@ -15,6 +15,8 @@
 #include "CanHandler.h"
 #include "CommandHandler.h"
 #include "PersistentStorage.h"
+#include "FFBDiagnostics.h"
+#include "ODriveTrace.h"
 
 #ifdef ODRIVE
 #define ODRIVE_THREAD_MEM 256
@@ -29,7 +31,7 @@ enum class ODriveEncoderFlags : uint32_t {ERROR_NONE = 0,ERROR_UNSTABLE_GAIN = 0
 enum class ODriveAxisError : uint32_t {AXIS_ERROR_NONE = 0x00000000,AXIS_ERROR_INVALID_STATE  = 0x00000001, AXIS_ERROR_WATCHDOG_TIMER_EXPIRED = 0x00000800,AXIS_ERROR_MIN_ENDSTOP_PRESSED = 0x00001000, AXIS_ERROR_MAX_ENDSTOP_PRESSED = 0x00002000,AXIS_ERROR_ESTOP_REQUESTED = 0x00004000,AXIS_ERROR_HOMING_WITHOUT_ENDSTOP = 0x00020000,AXIS_ERROR_OVER_TEMP = 0x00040000,AXIS_ERROR_UNKNOWN_POSITION = 0x00080000};
 
 enum class ODriveCAN_commands : uint32_t{
-	canid,canspd,errors,state,maxtorque,vbus,anticogging,connected,storepos
+	canid,canspd,errors,state,maxtorque,vbus,anticogging,connected,storepos,diag,diag2,trace
 };
 
 class ODriveCAN : public MotorDriver,public PersistentStorage, public Encoder, public CanHandler, public CommandHandler, cpp_freertos::Thread{
@@ -49,15 +51,13 @@ public:
 	bool hasIntegratedEncoder() {return true;}
 
 	template<class T>
-	void sendMsg(uint8_t cmd,T value){
+	bool sendMsg(uint8_t cmd,T value){
 		CAN_tx_msg msg;
 		memcpy(&msg.data,&value,sizeof(T));
 		msg.header.rtr = false;
 		msg.header.length = sizeof(T);
 		msg.header.id = cmd | (nodeId << 5);
-		if(!port->sendMessage(msg)){
-			// Nothing
-		}
+		return port->sendMessage(msg);
 	}
 
 	void sendMsg(uint8_t cmd,float value);
@@ -74,6 +74,7 @@ public:
 
 
 	float getPos_f() override;
+	bool getVelocity_f(float& velocity) override;
 	uint32_t getCpr() override;
 	int32_t getPos() override;
 	void setPos(int32_t pos) override;
@@ -99,10 +100,15 @@ private:
 	CANPort* port = &canport;
 	float lastPos = 0;
 	float lastSpeed = 0;
+	ODriveTelemetry telemetry;
+	ODriveTrace torqueTrace;
 	float posOffset = 0;
 	float lastVoltage = 0;
 	uint32_t lastVoltageUpdate = 0;
 	uint32_t lastCanMessage = 0;
+	uint32_t lastHeartbeatMs = 0;
+	bool heartbeatSeen = false;
+	bool velocityIsValid(uint32_t nowUs, uint32_t nowMs) const;
 
 	uint32_t lastPosTime = 0;
 	bool posWaiting = false;

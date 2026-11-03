@@ -6,6 +6,7 @@
 #include "cpp_target_config.h"
 #include "cmsis_os.h"
 #include "tusb.h"
+#include "FFBDiagnostics.h"
 
 uint32_t clkmhz = HAL_RCC_GetHCLKFreq() / 100000;
 
@@ -134,6 +135,28 @@ uint32_t micros(){
 
 }
 
+
+// Task context only. Keep the HAL tick and its hardware overflow flag coherent.
+// Used for slew timing and diagnostics; existing effect clocks stay unchanged.
+uint32_t coherentMicros() {
+#ifdef TIM_MICROS_HALTICK
+    extern TIM_HandleTypeDef TIM_MICROS_HALTICK;
+    const uint32_t mask = __get_PRIMASK();
+    __disable_irq();
+    const uint32_t now = readDiagnosticMicros(
+        [] { return HAL_GetTick(); },
+        [] { return TIM_MICROS_HALTICK.Instance->CNT; },
+        [] { return (TIM_MICROS_HALTICK.Instance->SR & TIM_SR_UIF) != 0; });
+    __set_PRIMASK(mask);
+    return now;
+#else
+    return micros();
+#endif
+}
+
+uint32_t diagnosticMicros() {
+    return coherentMicros();
+}
 
 void* malloc(size_t size)
 {

@@ -6,6 +6,7 @@
  */
 
 #include "Axis.h"
+#include "AxisSettingsStorage.h"
 #include "voltagesense.h"
 #include "TMC4671.h"
 #include "MotorPWM.h"
@@ -96,7 +97,7 @@ Axis::Axis(char axis,volatile Control_t* control) :CommandHandler("axis", CLSID_
 		setInstance(0);
 		this->flashAddrs = AxisFlashAddrs({ADR_AXIS1_CONFIG, ADR_AXIS1_MAX_SPEED, ADR_AXIS1_MAX_ACCEL,
 										   ADR_AXIS1_ENDSTOP, ADR_AXIS1_POWER, ADR_AXIS1_DEGREES,ADR_AXIS1_EFFECTS1,ADR_AXIS1_EFFECTS2,ADR_AXIS1_ENC_RATIO,
-										   ADR_AXIS1_SPEEDACCEL_FILTER,ADR_AXIS1_POSTPROCESS1});
+										   ADR_AXIS1_SPEEDACCEL_FILTER,ADR_AXIS1_POSTPROCESS1,ADR_AXIS1_TUNING_A_LO,ADR_AXIS1_SLEW_A_0});
 	}
 	else if (axis == 'Y')
 	{
@@ -104,14 +105,14 @@ Axis::Axis(char axis,volatile Control_t* control) :CommandHandler("axis", CLSID_
 		setInstance(1);
 		this->flashAddrs = AxisFlashAddrs({ADR_AXIS2_CONFIG, ADR_AXIS2_MAX_SPEED, ADR_AXIS2_MAX_ACCEL,
 										   ADR_AXIS2_ENDSTOP, ADR_AXIS2_POWER, ADR_AXIS2_DEGREES,ADR_AXIS2_EFFECTS1,ADR_AXIS2_EFFECTS2, ADR_AXIS2_ENC_RATIO,
-										   ADR_AXIS2_SPEEDACCEL_FILTER,ADR_AXIS2_POSTPROCESS1});
+										   ADR_AXIS2_SPEEDACCEL_FILTER,ADR_AXIS2_POSTPROCESS1,ADR_AXIS2_TUNING_A_LO,ADR_AXIS2_SLEW_A_0});
 	}
 	else if (axis == 'Z')
 	{
 		setInstance(2);
 		this->flashAddrs = AxisFlashAddrs({ADR_AXIS3_CONFIG, ADR_AXIS3_MAX_SPEED, ADR_AXIS3_MAX_ACCEL,
 										   ADR_AXIS3_ENDSTOP, ADR_AXIS3_POWER, ADR_AXIS3_DEGREES,ADR_AXIS3_EFFECTS1,ADR_AXIS3_EFFECTS2,ADR_AXIS3_ENC_RATIO,
-										   ADR_AXIS3_SPEEDACCEL_FILTER,ADR_AXIS3_POSTPROCESS1});
+										   ADR_AXIS3_SPEEDACCEL_FILTER,ADR_AXIS3_POSTPROCESS1,ADR_AXIS3_TUNING_A_LO,ADR_AXIS3_SLEW_A_0});
 	}
 
 
@@ -145,7 +146,7 @@ void Axis::registerCommands(){
 	registerCommand("drvtype", Axis_commands::drvtype, "Motor driver type get/set/list",CMDFLAG_GET | CMDFLAG_SET | CMDFLAG_INFOSTRING);
 	registerCommand("pos", Axis_commands::pos, "Encoder position",CMDFLAG_GET);
 	registerCommand("maxspeed", Axis_commands::maxspeed, "Speed limit in deg/s",CMDFLAG_GET | CMDFLAG_SET);
-	registerCommand("maxtorquerate", Axis_commands::maxtorquerate, "Torque rate limit in counts/ms",CMDFLAG_GET | CMDFLAG_SET);
+	registerCommand("maxtorquerate", Axis_commands::maxtorquerate, "Torque rate limit in counts/ms (real dt; 0 disables; auto-saved)",CMDFLAG_GET | CMDFLAG_SET);
 	registerCommand("fxratio", Axis_commands::fxratio, "Effect ratio. Reduces game effects excluding endstop. 255=100%",CMDFLAG_GET | CMDFLAG_SET);
 	registerCommand("curtorque", Axis_commands::curtorque, "Axis torque",CMDFLAG_GET);
 	registerCommand("curpos", Axis_commands::curpos, "Axis position",CMDFLAG_GET);
@@ -160,6 +161,18 @@ void Axis::registerCommands(){
 	registerCommand("cpr", Axis_commands::cpr, "Reported encoder CPR",CMDFLAG_GET);
 	registerCommand("expo", Axis_commands::expo, "Exponential curve correction (x^(val/exposcale)+1)", CMDFLAG_GET | CMDFLAG_SET);
 	registerCommand("exposcale", Axis_commands::exposcale, "Scaler constant for expo", CMDFLAG_GET);
+	registerCommand("diag", Axis_commands::diag, "FFB diagnostic snapshot (CSV v1)", CMDFLAG_GET);
+	registerCommand("encvel", Axis_commands::encvel, "Use fresh encoder velocity: 0=legacy, 1=prefer estimate (auto-saved)", CMDFLAG_GET | CMDFLAG_SET);
+	registerCommand("diag2", Axis_commands::diag2, "FFB snapshot with measured loop interval statistics (CSV v2)", CMDFLAG_GET);
+	registerCommand("diag3", Axis_commands::diag3, "FFB snapshot with integrated asymmetric slew telemetry (CSV v3)", CMDFLAG_GET);
+	registerCommand("slewprofile", Axis_commands::slewprofile, "Persistent slew selection: 0=custom; 1..3=saved slot", CMDFLAG_GET | CMDFLAG_SET);
+	registerCommand("slewslot", Axis_commands::slewslot, "Persistent rate in counts/ms at slot address 1..3; editing active slot applies rate", CMDFLAG_GETADR | CMDFLAG_SETADR);
+	registerCommand("slewvalid", Axis_commands::slewvalid, "Initialized slew slots bitmask (bits 0..2)", CMDFLAG_GET);
+	registerCommand("slewmode", Axis_commands::slewmode, "Slew mode: 0=symmetric legacy; 1=magnitude-based asymmetric", CMDFLAG_GET | CMDFLAG_SET);
+	registerCommand("slewup", Axis_commands::slewup, "Torque magnitude increase rate in counts/ms; 0 uses maxtorquerate", CMDFLAG_GET | CMDFLAG_SET);
+	registerCommand("slewdown", Axis_commands::slewdown, "Torque magnitude decrease rate in counts/ms; 0 uses maxtorquerate", CMDFLAG_GET | CMDFLAG_SET);
+	registerCommand("slewstats", Axis_commands::slewstats, "Slew statistics CSV v1: version,power_clip_updates,slew_limited_updates,slew_delta_counts", CMDFLAG_GET);
+	registerCommand("slewstatsreset", Axis_commands::slewstatsreset, "Reset slew statistics on the next FFB update", CMDFLAG_SET);
 }
 
 /*
@@ -183,12 +196,7 @@ void Axis::restoreFlash(){
 	}else{
 		pulseErrLed();
 	}
-//
-//	if (Flash_Read(flashAddrs.maxAccel, &value)){
-//		this->maxTorqueRateMS = value;
-//	}else{
-//		pulseErrLed();
-//	}
+	restoreAxisTuningSettings();
 
 
 	uint16_t esval, power;
@@ -249,7 +257,7 @@ void Axis::saveFlash(){
 	//NormalizedAxis::saveFlash();
 	Flash_Write(flashAddrs.config, Axis::encodeConfToInt(this->conf));
 	Flash_Write(flashAddrs.maxSpeed, this->maxSpeedDegS);
-//	Flash_Write(flashAddrs.maxAccel, (uint16_t)(this->maxTorqueRateMS));
+	if (!saveAxisTuningSettings(maxTorqueRateMS, useEncoderVelocity)) pulseErrLed();
 
 	Flash_Write(flashAddrs.endstop, fx_ratio_i | (endstopStrength << 8));
 	Flash_Write(flashAddrs.power, power);
@@ -265,6 +273,98 @@ void Axis::saveFlash(){
 	// Postprocessing
 	Flash_Write(flashAddrs.postprocess1, expoValInt & 0xff);
 
+}
+
+
+void Axis::restoreAxisTuningSettings(){
+	slewSettings = {};
+	AxisSlewProfiles::load(flashAddrs.slewProfiles, flashAddrs.tuning, slewSettings);
+	maxTorqueRateMS = slewSettings.maxTorqueRate;
+	useEncoderVelocity = slewSettings.encoderVelocity;
+	torqueSlew.reset();
+}
+
+bool Axis::saveAxisTuningSettings(uint32_t rate, bool encoderVelocity){
+	auto next = slewSettings;
+	if (rate != next.maxTorqueRate) next.active = 0;
+	next.maxTorqueRate = rate;
+	next.encoderVelocity = encoderVelocity;
+	if (!AxisSlewProfiles::save(flashAddrs.slewProfiles, next)) return false;
+	slewSettings = next;
+	return true;
+}
+
+bool Axis::commitSlewSettings(const AxisSlewSettings& settings){
+	if (!AxisSlewProfiles::save(flashAddrs.slewProfiles, settings)) return false;
+	if (!AxisSlewProfiles::saveAsymmetric(flashAddrs.slewProfiles, settings)) return false;
+	if (maxTorqueRateMS != settings.maxTorqueRate
+		|| slewSettings.asymmetric != settings.asymmetric
+		|| slewSettings.torqueRiseRate != settings.torqueRiseRate
+		|| slewSettings.torqueFallRate != settings.torqueFallRate) {
+		torqueSlew.reset();
+	}
+	slewSettings = settings;
+	maxTorqueRateMS = settings.maxTorqueRate;
+	useEncoderVelocity = settings.encoderVelocity;
+	return true;
+}
+
+CommandStatus Axis::setSlewProfile(int64_t value){
+	if (value < 0 || value > 3) return CommandStatus::ERR;
+	auto next = slewSettings;
+	if (value && !(next.validSlots & (1U << (value - 1)))) return CommandStatus::ERR;
+	next.active = value;
+	if (value) next.maxTorqueRate = next.slots[value - 1];
+	return commitSlewSettings(next) ? CommandStatus::OK : CommandStatus::ERR;
+}
+
+CommandStatus Axis::setSlewSlot(int64_t slot, int64_t value){
+	if (slot < 1 || slot > 3 || value < 0 || uint64_t(value) > UINT32_MAX) return CommandStatus::ERR;
+	auto next = slewSettings;
+	next.slots[slot - 1] = value;
+	next.validSlots |= 1U << (slot - 1);
+	if (next.active == slot) next.maxTorqueRate = value;
+	return commitSlewSettings(next) ? CommandStatus::OK : CommandStatus::ERR;
+}
+
+CommandStatus Axis::setSlewMode(int64_t value){
+	if (value != 0 && value != 1) return CommandStatus::ERR;
+	auto next = slewSettings;
+	next.asymmetric = value != 0;
+	return commitSlewSettings(next) ? CommandStatus::OK : CommandStatus::ERR;
+}
+
+CommandStatus Axis::setSlewUp(int64_t value){
+	if (value < 0 || uint64_t(value) > UINT32_MAX) return CommandStatus::ERR;
+	auto next = slewSettings;
+	next.torqueRiseRate = static_cast<uint32_t>(value);
+	return commitSlewSettings(next) ? CommandStatus::OK : CommandStatus::ERR;
+}
+
+CommandStatus Axis::setSlewDown(int64_t value){
+	if (value < 0 || uint64_t(value) > UINT32_MAX) return CommandStatus::ERR;
+	auto next = slewSettings;
+	next.torqueFallRate = static_cast<uint32_t>(value);
+	return commitSlewSettings(next) ? CommandStatus::OK : CommandStatus::ERR;
+}
+
+CommandStatus Axis::setEncoderVelocity(int64_t value){
+	if (value != 0 && value != 1) return CommandStatus::ERR;
+	const bool enabled = value != 0;
+	if (!saveAxisTuningSettings(maxTorqueRateMS, enabled)) return CommandStatus::ERR;
+	useEncoderVelocity = enabled;
+	return CommandStatus::OK;
+}
+
+CommandStatus Axis::setMaxTorqueRate(int64_t value){
+	if (value < 0 || uint64_t(value) > UINT32_MAX) return CommandStatus::ERR;
+	const uint32_t rate = static_cast<uint32_t>(value);
+	if (!saveAxisTuningSettings(rate, useEncoderVelocity)) return CommandStatus::ERR;
+	if (maxTorqueRateMS != rate){
+		maxTorqueRateMS = rate;
+		torqueSlew.reset();
+	}
+	return CommandStatus::OK;
 }
 
 
@@ -302,6 +402,7 @@ Encoder* Axis::getEncoder(){
  * Called from FFBWheel->Update() via AxesManager->Update()
  */
 void Axis::prepareForUpdate(){
+	workingDiagnostics.recordTime(diagnosticMicros());
 	if (drv == nullptr){
 		pulseErrLed();
 		return;
@@ -361,13 +462,24 @@ void Axis::errorCallback(const Error &error, bool cleared){
 }
 
 
+void Axis::resetTorqueLimiter(){
+	torqueSlew.reset();
+	lastTorqueCommand = 0;
+	torqueCommandValid = false;
+}
+
 void Axis::updateDriveTorque(){
-	// totalTorque = effectTorque + endstopTorque
 	int32_t totalTorque;
-	bool torqueChanged = updateTorque(&totalTorque);
-	if (torqueChanged && drv->motorReady()){
-		// Send to motor driver
-		drv->turn(totalTorque);
+	const bool torqueChanged = updateTorque(&totalTorque);
+	if (drv->motorReady() && !control->emergency && !control->usb_disabled){
+		if (torqueChanged){
+			drv->turn(totalTorque);
+			lastTorqueCommand = totalTorque;
+			torqueCommandValid = true;
+		}
+	}else{
+		// No computed output may become the reference while the driver is off.
+		resetTorqueLimiter();
 	}
 }
 
@@ -405,6 +517,7 @@ void Axis::setDrvType(uint8_t drvtype)
 		return;
 	}
 	this->conf.drvtype = drvtype;
+	resetTorqueLimiter();
 
 	// Pass encoder to driver again
 	if(!this->drv->hasIntegratedEncoder()){
@@ -519,6 +632,7 @@ float Axis::getEncAngle(Encoder *enc){
  */
 void Axis::emergencyStop(bool reset){
 	drv->turn(0); // Send 0 torque first
+	resetTorqueLimiter();
 	if(reset){
 		startForceFadeIn();
 	}
@@ -530,6 +644,7 @@ void Axis::emergencyStop(bool reset){
  * Disables torque and motor driver
  */
 void Axis::usbSuspend(){
+	resetTorqueLimiter();
 	if (drv != nullptr){
 		drv->turn(0);
 		drv->stopMotor();
@@ -540,6 +655,7 @@ void Axis::usbSuspend(){
  * Enables motor driver
  */
 void Axis::usbResume(){
+	resetTorqueLimiter();
 	startForceFadeIn();
 	if (drv != nullptr){
 		drv->startMotor();
@@ -640,6 +756,9 @@ void Axis::resetMetrics(float new_pos= 0) { // pos is degrees
 	metric.current.posDegrees = new_pos;
 	std::tie(metric.current.pos_scaled_16b,metric.current.pos_f) = scaleEncValue(new_pos, degreesOfRotation);
 	metric.previous = metric_t();
+	_lastSpeed = 0;
+	encoderVelocityWasUsed = false;
+	velocityContinuity.reset();
 	// Reset filters
 	speedFilter.calcBiquad();
 	accelFilter.calcBiquad();
@@ -658,9 +777,35 @@ void Axis::updateMetrics(float new_pos) { // pos is degrees
 
 	// compute speed and accel from raw instant speed normalized
 	float currentSpeed = (new_pos - metric.previous.posDegrees) * this->filter_f; // deg/s
+	workingDiagnostics.positionSpeed = currentSpeed;
+	float encoderSpeed = 0;
+	Encoder* encoder = getEncoder();
+	bool encoderValid = encoder && encoder->getVelocity_f(encoderSpeed);
+	encoderSpeed *= 360.0f * gearRatio.gearRatio * (isInverted() ? -1.0f : 1.0f);
+	encoderValid = encoderValid && std::isfinite(encoderSpeed);
+	const bool encoderUsed = useEncoderVelocity && encoderValid;
+	if (encoderUsed) currentSpeed = encoderSpeed;
+	const auto continuous = velocityContinuity.update(currentSpeed, encoderUsed,
+		workingDiagnostics.timeUs, filter_f);
+	// encvel=0 retains the original position derivative and filter path exactly.
+	float speedDelta = currentSpeed - _lastSpeed;
+	if (useEncoderVelocity) {
+		currentSpeed = continuous.speed;
+		speedDelta = continuous.acceleration / filter_f;
+	} else if (encoderVelocityWasUsed) {
+		speedDelta = 0;
+	}
+	encoderVelocityWasUsed = encoderUsed;
+	workingDiagnostics.encoderSpeed = encoderSpeed;
+	workingDiagnostics.encoderValid = encoderValid;
+	workingDiagnostics.encoderUsed = encoderUsed;
 	metric.current.speed = speedFilter.process(currentSpeed);
-	metric.current.accel = accelFilter.process((currentSpeed - _lastSpeed))* this->filter_f; // deg/s/s
-	_lastSpeed = currentSpeed;
+	metric.current.accel = accelFilter.process(speedDelta) * filter_f; // deg/s/s
+	_lastSpeed = workingDiagnostics.positionSpeed;
+	workingDiagnostics.sourceSwitches = velocityContinuity.switches;
+	workingDiagnostics.velocityTransition = useEncoderVelocity && continuous.transitioning;
+	workingDiagnostics.speed = metric.current.speed;
+	workingDiagnostics.accel = metric.current.accel;
 
 }
 
@@ -723,6 +868,17 @@ void Axis::setEffectTorque(int32_t torque) {
 
 bool Axis::updateTorque(int32_t* totalTorque) {
 
+	// Apply a requested diagnostic reset on the next FFB frame boundary.
+	cpp_freertos::CriticalSection::Enter();
+	const bool resetSlewStats = slewStatsResetPending;
+	slewStatsResetPending = false;
+	cpp_freertos::CriticalSection::Exit();
+	if (resetSlewStats) {
+		workingDiagnostics.clipped = 0;
+		workingDiagnostics.limited = 0;
+		workingDiagnostics.slewDeltaCounts = 0;
+	}
+
 	if(abs(effectTorque) >= 0x7fff){
 		pulseClipLed();
 	}
@@ -774,32 +930,74 @@ bool Axis::updateTorque(int32_t* totalTorque) {
 
 	// Torque calculated. Now sending to driver
 	torque = (invertAxis) ? -torque : torque;
+	workingDiagnostics.effect = effectTorque;
+	workingDiagnostics.requested = torque;
 
 	// Clamp first so the slew-rate limiter works on the torque that can
 	// actually be sent to the motor driver.
 	torque = clip<int32_t, int32_t>(torque, -power, power);
+	workingDiagnostics.clippedTarget = torque;
+	const bool powerClippedAtTarget = torque != workingDiagnostics.requested;
 
-	// Torque slew rate limiter.
-	// metric.previous.torque is the previous final output torque because
-	// metric.current.torque is stored only after all output limits.
-	// Bypass the limiter for an out-of-bounds safety shutdown.
-	if(maxTorqueRateMS > 0 && !outOfBounds){
-		torque = clip<int32_t,int32_t>(
-			torque,
-			metric.previous.torque - maxTorqueRateMS,
-			metric.previous.torque + maxTorqueRateMS
-		);
+	const bool driverReady = drv->motorReady();
+	const bool outputEnabled = driverReady && !control->emergency && !control->usb_disabled;
+	if (!outputEnabled){
+		torque = 0;
+		resetTorqueLimiter();
+	}else if (outOfBounds){
+		// Safety shutdown bypasses slew and clears time/fractional history.
+		torque = 0;
+		torqueSlew.reset();
+	}else if (slewSettings.asymmetric){
+		const uint32_t riseRate = slewSettings.torqueRiseRate != 0
+			? slewSettings.torqueRiseRate : maxTorqueRateMS;
+		const uint32_t fallRate = slewSettings.torqueFallRate != 0
+			? slewSettings.torqueFallRate : maxTorqueRateMS;
+		if (riseRate != 0 || fallRate != 0){
+			const uint32_t nominalUs = (filter_f >= 1.0f && filter_f <= 1000000.0f)
+				? static_cast<uint32_t>(1000000.0f / filter_f) : 1000;
+			torque = torqueSlew.applyAsymmetric(torque, lastTorqueCommand, riseRate,
+				fallRate, coherentMicros(), nominalUs);
+		}else{
+			torqueSlew.reset();
+		}
+	}else if (maxTorqueRateMS > 0){
+		const uint32_t nominalUs = (filter_f >= 1.0f && filter_f <= 1000000.0f)
+			? static_cast<uint32_t>(1000000.0f / filter_f) : 1000;
+		torque = torqueSlew.apply(torque, lastTorqueCommand, maxTorqueRateMS,
+			coherentMicros(), nominalUs);
+	}else{
+		torqueSlew.reset(); // disabled: no limiter clock reads or stored credit
 	}
 
-	// Clamp again in case the configured power was reduced since the
-	// previous update. A power reduction must take effect immediately.
-	torque = clip<int32_t, int32_t>(torque, -power, power);
+	// Record only the absolute correction introduced by the slew stage.
+	if (outputEnabled && !outOfBounds && torque != workingDiagnostics.clippedTarget) {
+		if (workingDiagnostics.limited != UINT32_MAX) ++workingDiagnostics.limited;
+		const int64_t error = int64_t(workingDiagnostics.clippedTarget) - int64_t(torque);
+		const uint64_t magnitude = error < 0 ? uint64_t(-error) : uint64_t(error);
+		workingDiagnostics.slewDeltaCounts =
+			(UINT64_MAX - workingDiagnostics.slewDeltaCounts < magnitude)
+				? UINT64_MAX : workingDiagnostics.slewDeltaCounts + magnitude;
+	}
 
-	// Store the torque that is actually going to the driver so the next
-	// slew-rate calculation references the last physical output command.
+	// A reduced power limit takes effect immediately, even if slew is enabled.
+	const int32_t preFinalClip = torque;
+	const int32_t finalTorque = clip<int32_t, int32_t>(torque, -power, power);
+	if (finalTorque != preFinalClip) torqueSlew.clearFraction();
+	if ((powerClippedAtTarget || finalTorque != preFinalClip)
+		&& workingDiagnostics.clipped != UINT32_MAX) ++workingDiagnostics.clipped;
+	torque = finalTorque;
+
+	// Metrics expose the candidate; updateDriveTorque commits the reference
+	// only when the command is actually handed to the motor driver.
 	metric.current.torque = torque;
+	workingDiagnostics.output = torque;
+	workingDiagnostics.driverReady = driverReady;
+	cpp_freertos::CriticalSection::Enter();
+	diagnostics = workingDiagnostics;
+	cpp_freertos::CriticalSection::Exit();
 
-	bool torqueChanged = metric.current.torque != metric.previous.torque;
+	bool torqueChanged = !torqueCommandValid || torque != lastTorqueCommand;
 
 	if (abs(torque) == power){
 		pulseClipLed();
@@ -811,6 +1009,7 @@ bool Axis::updateTorque(int32_t* totalTorque) {
 
 void Axis::updateSamplerate(float newSamplerate){
 	this->filter_f = newSamplerate;
+	torqueSlew.reset(); // New period: establish a fresh timestamp without changing output
 	this->updateFilters(this->filterProfileId); // Recalculate filters
 }
 
@@ -877,6 +1076,113 @@ CommandStatus Axis::command(const ParsedCommand& cmd,std::vector<CommandReply>& 
 		{
 			setPower(cmd.val);
 		}
+		break;
+
+	case Axis_commands::diag:
+	case Axis_commands::diag2:
+	case Axis_commands::diag3:
+	{
+		if (cmd.type != CMDtype::get) return CommandStatus::ERR;
+		const bool extended = cmd.cmdId == static_cast<uint32_t>(Axis_commands::diag2) || cmd.cmdId == static_cast<uint32_t>(Axis_commands::diag3);
+		const bool slewExtended = cmd.cmdId == static_cast<uint32_t>(Axis_commands::diag3);
+		AxisDiagnostics d;
+		AxisSlewSettings slewSnapshot;
+		uint32_t fallbackRate = 0;
+		cpp_freertos::CriticalSection::Enter();
+		d = diagnostics;
+		if (slewExtended) {
+			slewSnapshot = slewSettings;
+			fallbackRate = maxTorqueRateMS;
+		}
+		cpp_freertos::CriticalSection::Exit();
+		std::string buf(640, '\0');
+		snprintf(buf.data(), buf.size(),
+			"%u,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%ld,%ld,%ld,%ld,%.6g,%.6g,%.6g,%.6g,%u,%u,%u",
+			slewExtended ? 3U : (extended ? 2U : 1U),
+			(unsigned long)d.sequence, (unsigned long)d.timeUs, (unsigned long)d.dtUs,
+			(unsigned long)(d.minDtUs == UINT32_MAX ? 0 : d.minDtUs), (unsigned long)d.maxDtUs,
+			(unsigned long)d.clipped, (unsigned long)d.limited,
+			(long)d.effect, (long)d.requested, (long)d.clippedTarget, (long)d.output,
+			(double)d.positionSpeed, (double)d.encoderSpeed, (double)d.speed, (double)d.accel,
+			(unsigned)d.encoderValid, (unsigned)d.encoderUsed, (unsigned)d.driverReady);
+		if (extended) {
+			const size_t used = strlen(buf.c_str());
+			snprintf(buf.data() + used, buf.size() - used, ",%lu,%.6g,%.6g,%lu,%lu,%lu,%u,%u,%lu",
+				(unsigned long)d.timing.count, (double)d.timing.meanUs, (double)d.timing.stddevUs(),
+				(unsigned long)d.timing.minUs, (unsigned long)d.timing.maxUs,
+				(unsigned long)d.sourceSwitches, (unsigned)d.velocityTransition,
+				(unsigned)(slewExtended ? slewSnapshot.active : slewSettings.active),
+				(slewExtended ? (unsigned long)fallbackRate : (unsigned long)maxTorqueRateMS));
+			if (slewExtended) {
+				const size_t used2 = strlen(buf.c_str());
+				snprintf(buf.data() + used2, buf.size() - used2, ",%u,%lu,%lu,%lu,%lu,%lu,%llu",
+					(unsigned)slewSnapshot.asymmetric,
+					(unsigned long)slewSnapshot.torqueRiseRate,
+					(unsigned long)slewSnapshot.torqueFallRate,
+					(unsigned long)fallbackRate,
+					(unsigned long)d.clipped, (unsigned long)d.limited,
+					(unsigned long long)d.slewDeltaCounts);
+			}
+		}
+		buf.resize(strlen(buf.c_str()));
+		replies.emplace_back(buf);
+		break;
+	}
+	case Axis_commands::encvel:
+		if (cmd.type == CMDtype::get) replies.emplace_back(useEncoderVelocity ? 1 : 0);
+		else if (cmd.type == CMDtype::set) return setEncoderVelocity(cmd.val);
+		else return CommandStatus::ERR;
+		break;
+	case Axis_commands::slewprofile:
+		if (cmd.type == CMDtype::get) replies.emplace_back(slewSettings.active);
+		else if (cmd.type == CMDtype::set) return setSlewProfile(cmd.val);
+		else return CommandStatus::ERR;
+		break;
+	case Axis_commands::slewslot:
+		if (cmd.adr < 1 || cmd.adr > 3) return CommandStatus::ERR;
+		if (cmd.type == CMDtype::getat) replies.emplace_back(slewSettings.slots[cmd.adr - 1]);
+		else if (cmd.type == CMDtype::setat) return setSlewSlot(cmd.adr, cmd.val);
+		else return CommandStatus::ERR;
+		break;
+	case Axis_commands::slewvalid:
+		if (cmd.type != CMDtype::get) return CommandStatus::ERR;
+		replies.emplace_back(slewSettings.validSlots);
+		break;
+
+	case Axis_commands::slewmode:
+		if (cmd.type == CMDtype::get) replies.emplace_back(slewSettings.asymmetric ? 1 : 0);
+		else if (cmd.type == CMDtype::set) return setSlewMode(cmd.val);
+		else return CommandStatus::ERR;
+		break;
+	case Axis_commands::slewup:
+		if (cmd.type == CMDtype::get) replies.emplace_back(slewSettings.torqueRiseRate);
+		else if (cmd.type == CMDtype::set) return setSlewUp(cmd.val);
+		else return CommandStatus::ERR;
+		break;
+	case Axis_commands::slewdown:
+		if (cmd.type == CMDtype::get) replies.emplace_back(slewSettings.torqueFallRate);
+		else if (cmd.type == CMDtype::set) return setSlewDown(cmd.val);
+		else return CommandStatus::ERR;
+		break;
+	case Axis_commands::slewstats:
+	{
+		if (cmd.type != CMDtype::get) return CommandStatus::ERR;
+		cpp_freertos::CriticalSection::Enter();
+		const AxisDiagnostics d = diagnostics;
+		cpp_freertos::CriticalSection::Exit();
+		char stats[96];
+		const int written = snprintf(stats, sizeof(stats), "1,%lu,%lu,%llu",
+			(unsigned long)d.clipped, (unsigned long)d.limited,
+			(unsigned long long)d.slewDeltaCounts);
+		if (written < 0 || static_cast<size_t>(written) >= sizeof(stats)) return CommandStatus::ERR;
+		replies.emplace_back(stats);
+		break;
+	}
+	case Axis_commands::slewstatsreset:
+		if (cmd.type != CMDtype::set) return CommandStatus::ERR;
+		cpp_freertos::CriticalSection::Enter();
+		slewStatsResetPending = true;
+		cpp_freertos::CriticalSection::Exit();
 		break;
 
 	case Axis_commands::degrees:
@@ -996,8 +1302,12 @@ CommandStatus Axis::command(const ParsedCommand& cmd,std::vector<CommandReply>& 
 		break;
 
 	case Axis_commands::maxtorquerate:
-		handleGetSet(cmd, replies, this->maxTorqueRateMS);
+	{
+		if (cmd.type == CMDtype::get || cmd.type == CMDtype::getat) replies.emplace_back(maxTorqueRateMS);
+		else if (cmd.type == CMDtype::set || cmd.type == CMDtype::setat) return setMaxTorqueRate(cmd.val);
+		else return CommandStatus::ERR;
 		break;
+	}
 
 	case Axis_commands::fxratio:
 		if(cmd.type == CMDtype::get){

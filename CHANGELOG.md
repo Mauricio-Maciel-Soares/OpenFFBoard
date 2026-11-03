@@ -1,3 +1,10 @@
+## Unreleased — torque observability and persistent slew profiles
+
+- Add timestamped passive Iq trace, measured loop/CAN interval statistics and observational RPM analysis.
+- Qualify CAN velocity with freshness/heartbeat and blend source changes without a synthetic inertia impulse.
+- Add three verified persistent slew slots with migration of existing settings.
+- Keep torque scaling, existing filters and the post-clipping real-dt limiter.
+
 ### v1.17.1
 - Fixed CAN filters for extended IDs
 - VESC uses CAN filters
