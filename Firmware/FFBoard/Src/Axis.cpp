@@ -165,6 +165,9 @@ void Axis::registerCommands(){
 	registerCommand("encvel", Axis_commands::encvel, "Use fresh encoder velocity: 0=legacy, 1=prefer estimate (auto-saved)", CMDFLAG_GET | CMDFLAG_SET);
 	registerCommand("diag2", Axis_commands::diag2, "FFB snapshot with measured loop interval statistics (CSV v2)", CMDFLAG_GET);
 	registerCommand("diag3", Axis_commands::diag3, "FFB snapshot with integrated asymmetric slew telemetry (CSV v3)", CMDFLAG_GET);
+	registerCommand("slewtrace", Axis_commands::slewtrace, "SlewTrace status and records", CMDFLAG_GET | CMDFLAG_GETADR);
+	registerCommand("slewtracestart", Axis_commands::slewtracestart, "Arm and clear 256-sample high-frequency slew capture", CMDFLAG_SET);
+	registerCommand("slewtracestop", Axis_commands::slewtracestop, "Freeze high-frequency slew capture", CMDFLAG_SET);
 	registerCommand("slewprofile", Axis_commands::slewprofile, "Persistent slew selection: 0=custom; 1..3=saved slot", CMDFLAG_GET | CMDFLAG_SET);
 	registerCommand("slewslot", Axis_commands::slewslot, "Persistent rate in counts/ms at slot address 1..3; editing active slot applies rate", CMDFLAG_GETADR | CMDFLAG_SETADR);
 	registerCommand("slewvalid", Axis_commands::slewvalid, "Initialized slew slots bitmask (bits 0..2)", CMDFLAG_GET);
@@ -471,15 +474,21 @@ void Axis::resetTorqueLimiter(){
 void Axis::updateDriveTorque(){
 	int32_t totalTorque;
 	const bool torqueChanged = updateTorque(&totalTorque);
-	if (drv->motorReady() && !control->emergency && !control->usb_disabled){
+	const bool driverReady = drv->motorReady() && !control->emergency && !control->usb_disabled;
+	if (driverReady){
 		if (torqueChanged){
 			drv->turn(totalTorque);
 			lastTorqueCommand = totalTorque;
 			torqueCommandValid = true;
+			pendingSlewTraceSample.flags |= SLEW_TRACE_DRIVER_TURN_CALL;
 		}
 	}else{
-		// No computed output may become the reference while the driver is off.
 		resetTorqueLimiter();
+	}
+	if (slewTrace.isRecording()) {
+		cpp_freertos::CriticalSection::Enter();
+		slewTrace.record(pendingSlewTraceSample);
+		cpp_freertos::CriticalSection::Exit();
 	}
 }
 
@@ -941,6 +950,12 @@ bool Axis::updateTorque(int32_t* totalTorque) {
 
 	const bool driverReady = drv->motorReady();
 	const bool outputEnabled = driverReady && !control->emergency && !control->usb_disabled;
+	const int32_t previousOutput = lastTorqueCommand;
+	const int32_t requestedTorque = workingDiagnostics.requested;
+	const int32_t clippedTarget = workingDiagnostics.clippedTarget;
+	const uint32_t slewNowUs = coherentMicros();
+	TorqueSlewObservation slewObservation;
+	bool limiterCalled = false;
 	if (!outputEnabled){
 		torque = 0;
 		resetTorqueLimiter();
@@ -954,18 +969,20 @@ bool Axis::updateTorque(int32_t* totalTorque) {
 		const uint32_t fallRate = slewSettings.torqueFallRate != 0
 			? slewSettings.torqueFallRate : maxTorqueRateMS;
 		if (riseRate != 0 || fallRate != 0){
+			limiterCalled = true;
 			const uint32_t nominalUs = (filter_f >= 1.0f && filter_f <= 1000000.0f)
 				? static_cast<uint32_t>(1000000.0f / filter_f) : 1000;
 			torque = torqueSlew.applyAsymmetric(torque, lastTorqueCommand, riseRate,
-				fallRate, coherentMicros(), nominalUs);
+				fallRate, slewNowUs, nominalUs, &slewObservation);
 		}else{
 			torqueSlew.reset();
 		}
 	}else if (maxTorqueRateMS > 0){
+		limiterCalled = true;
 		const uint32_t nominalUs = (filter_f >= 1.0f && filter_f <= 1000000.0f)
 			? static_cast<uint32_t>(1000000.0f / filter_f) : 1000;
 		torque = torqueSlew.apply(torque, lastTorqueCommand, maxTorqueRateMS,
-			coherentMicros(), nominalUs);
+			slewNowUs, nominalUs, &slewObservation);
 	}else{
 		torqueSlew.reset(); // disabled: no limiter clock reads or stored credit
 	}
@@ -993,6 +1010,33 @@ bool Axis::updateTorque(int32_t* totalTorque) {
 	metric.current.torque = torque;
 	workingDiagnostics.output = torque;
 	workingDiagnostics.driverReady = driverReady;
+	if (slewTrace.isRecording()) {
+		SlewTraceSample sample;
+		sample.timeUs = slewNowUs;
+		sample.dtRawUs = slewObservation.dtRawUs;
+		sample.dtUsedUs = slewObservation.dtUsedUs;
+		sample.nominalPeriodUs = (filter_f >= 1.0f && filter_f <= 1000000.0f) ? static_cast<uint32_t>(1000000.0f / filter_f) : 1000;
+		sample.previousOutput = previousOutput;
+		sample.requested = requestedTorque;
+		sample.clippedTarget = clippedTarget;
+		sample.slewOutput = preFinalClip;
+		sample.finalOutput = finalTorque;
+		sample.activeRate = slewObservation.activeRate;
+		sample.remainderBefore = slewObservation.remainderBefore;
+		sample.remainderAfter = slewObservation.remainderAfter;
+		sample.flags = (slewSettings.asymmetric ? SLEW_TRACE_ASYMMETRIC : 0)
+			| (limiterCalled ? SLEW_TRACE_LIMITER_CALLED : 0)
+			| ((slewObservation.flags & TORQUE_SLEW_OBS_DT_CLAMPED) ? SLEW_TRACE_DT_CLAMPED : 0)
+			| ((slewObservation.flags & TORQUE_SLEW_OBS_CROSSING_ZERO) ? SLEW_TRACE_CROSSING_ZERO : 0)
+			| ((slewObservation.flags & TORQUE_SLEW_OBS_FIRST_SAMPLE) ? SLEW_TRACE_FIRST_DT : 0)
+			| (driverReady ? SLEW_TRACE_DRIVER_READY : 0)
+			| (outputEnabled ? SLEW_TRACE_OUTPUT_ENABLED : 0)
+			| (finalTorque != preFinalClip ? SLEW_TRACE_FINAL_POWER_CLIP : 0)
+			| (torqueCommandValid ? SLEW_TRACE_PREVIOUS_VALID : 0)
+			| ((slewObservation.flags & TORQUE_SLEW_OBS_NO_ACTIVE_RATE) ? SLEW_TRACE_NO_ACTIVE_RATE : 0)
+			| ((slewObservation.flags & TORQUE_SLEW_OBS_BYPASSED) ? SLEW_TRACE_LIMITER_BYPASSED : 0);
+		pendingSlewTraceSample = sample;
+	}
 	cpp_freertos::CriticalSection::Enter();
 	diagnostics = workingDiagnostics;
 	cpp_freertos::CriticalSection::Exit();
