@@ -100,7 +100,7 @@ enum class Axis_commands : uint32_t{
 	power=0x00,degrees=0x01,esgain,zeroenc,invert,idlespring,axisdamper,enctype,drvtype,
 	pos,maxspeed,maxtorquerate,fxratio,curtorque,curpos,curspd,curaccel,reductionScaler,
 	filterSpeed, filterAccel, filterProfileId,cpr,axisfriction,axisinertia,
-	expo,exposcale,diag,encvel,diag2,slewprofile,slewslot,slewvalid,slewmode,slewup,slewdown,slewstats,slewstatsreset
+	expo,exposcale,diag,encvel,diag2,diag3,slewprofile,slewslot,slewvalid,slewmode,slewup,slewdown,slewstats,slewstatsreset
 };
 
 class Axis : public PersistentStorage, public CommandHandler, public ErrorHandler
