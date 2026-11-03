@@ -67,6 +67,7 @@ public:
         writeIndex = 0;
         stored = 0;
         overwritten = 0;
+        sequence = 0;
         recording = true;
     }
 
