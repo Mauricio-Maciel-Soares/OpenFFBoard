@@ -1082,19 +1082,18 @@ CommandStatus Axis::command(const ParsedCommand& cmd,std::vector<CommandReply>& 
 	case Axis_commands::diag3:
 	{
 		if (cmd.type != CMDtype::get) return CommandStatus::ERR;
-		cpp_freertos::CriticalSection::Enter();
-		const AxisDiagnostics d = diagnostics;
-		cpp_freertos::CriticalSection::Exit();
 		const bool extended = cmd.cmdId == static_cast<uint32_t>(Axis_commands::diag2) || cmd.cmdId == static_cast<uint32_t>(Axis_commands::diag3);
 		const bool slewExtended = cmd.cmdId == static_cast<uint32_t>(Axis_commands::diag3);
+		AxisDiagnostics d;
 		AxisSlewSettings slewSnapshot;
 		uint32_t fallbackRate = 0;
+		cpp_freertos::CriticalSection::Enter();
+		d = diagnostics;
 		if (slewExtended) {
-			cpp_freertos::CriticalSection::Enter();
 			slewSnapshot = slewSettings;
 			fallbackRate = maxTorqueRateMS;
-			cpp_freertos::CriticalSection::Exit();
 		}
+		cpp_freertos::CriticalSection::Exit();
 		std::string buf(640, '\0');
 		snprintf(buf.data(), buf.size(),
 			"%u,%lu,%lu,%lu,%lu,%lu,%lu,%lu,%ld,%ld,%ld,%ld,%.6g,%.6g,%.6g,%.6g,%u,%u,%u",
