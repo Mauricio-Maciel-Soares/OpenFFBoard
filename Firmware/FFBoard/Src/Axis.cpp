@@ -953,7 +953,8 @@ bool Axis::updateTorque(int32_t* totalTorque) {
 	const int32_t previousOutput = lastTorqueCommand;
 	const int32_t requestedTorque = workingDiagnostics.requested;
 	const int32_t clippedTarget = workingDiagnostics.clippedTarget;
-	const uint32_t slewNowUs = coherentMicros();
+	uint32_t slewNowUs = 0;
+	bool slewClockRead = false;
 	TorqueSlewObservation slewObservation;
 	bool limiterCalled = false;
 	if (!outputEnabled){
@@ -970,6 +971,8 @@ bool Axis::updateTorque(int32_t* totalTorque) {
 			? slewSettings.torqueFallRate : maxTorqueRateMS;
 		if (riseRate != 0 || fallRate != 0){
 			limiterCalled = true;
+			slewNowUs = coherentMicros();
+			slewClockRead = true;
 			const uint32_t nominalUs = (filter_f >= 1.0f && filter_f <= 1000000.0f)
 				? static_cast<uint32_t>(1000000.0f / filter_f) : 1000;
 			torque = torqueSlew.applyAsymmetric(torque, lastTorqueCommand, riseRate,
@@ -979,6 +982,8 @@ bool Axis::updateTorque(int32_t* totalTorque) {
 		}
 	}else if (maxTorqueRateMS > 0){
 		limiterCalled = true;
+		slewNowUs = coherentMicros();
+		slewClockRead = true;
 		const uint32_t nominalUs = (filter_f >= 1.0f && filter_f <= 1000000.0f)
 			? static_cast<uint32_t>(1000000.0f / filter_f) : 1000;
 		torque = torqueSlew.apply(torque, lastTorqueCommand, maxTorqueRateMS,
@@ -986,6 +991,8 @@ bool Axis::updateTorque(int32_t* totalTorque) {
 	}else{
 		torqueSlew.reset(); // disabled: no limiter clock reads or stored credit
 	}
+
+	if (slewTrace.isRecording() && !slewClockRead) slewNowUs = coherentMicros();
 
 	// Record only the absolute correction introduced by the slew stage.
 	if (outputEnabled && !outOfBounds && torque != workingDiagnostics.clippedTarget) {
