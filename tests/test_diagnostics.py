@@ -28,6 +28,7 @@ def method(text, signature):
 HARNESS = r'''
 #include "FFBDiagnostics.h"
 #include "TorqueSlewLimiter.h"
+#include "SlewTrace.h"
 #include "VelocityContinuity.h"
 #include <vector>
 #include <cassert>
@@ -69,6 +70,8 @@ struct Axis {
     uint32_t maxTorqueRateMS=1000;
     struct {bool asymmetric=false;uint32_t torqueRiseRate=0,torqueFallRate=0;} slewSettings;
     bool slewStatsResetPending=false;
+    SlewTrace slewTrace;
+    SlewTraceSample pendingSlewTraceSample;
     TorqueSlewLimiter torqueSlew;
     VelocityContinuity velocityContinuity;
     int32_t lastTorqueCommand=0;
