@@ -1229,6 +1229,65 @@ CommandStatus Axis::command(const ParsedCommand& cmd,std::vector<CommandReply>& 
 		cpp_freertos::CriticalSection::Exit();
 		break;
 
+	case Axis_commands::slewtracestart:
+		if (cmd.type != CMDtype::set || cmd.val != 1) return CommandStatus::ERR;
+		cpp_freertos::CriticalSection::Enter();
+		slewTrace.start();
+		cpp_freertos::CriticalSection::Exit();
+		break;
+
+	case Axis_commands::slewtracestop:
+		if (cmd.type != CMDtype::set || cmd.val != 1) return CommandStatus::ERR;
+		cpp_freertos::CriticalSection::Enter();
+		slewTrace.stop();
+		cpp_freertos::CriticalSection::Exit();
+		break;
+
+	case Axis_commands::slewtrace:
+	{
+		if (cmd.type == CMDtype::get) {
+			cpp_freertos::CriticalSection::Enter();
+			const SlewTraceStatus status = slewTrace.status();
+			cpp_freertos::CriticalSection::Exit();
+			char line[128];
+			const int n = snprintf(line, sizeof(line), "1,%u,%lu,%lu,%lu,%lu,%lu",
+				(unsigned)status.recording, (unsigned long)status.count,
+				(unsigned long)status.capacity, (unsigned long)status.oldest,
+				(unsigned long)status.newest, (unsigned long)status.overwritten);
+			if (n < 0 || static_cast<size_t>(n) >= sizeof(line)) return CommandStatus::ERR;
+			replies.emplace_back(line);
+		} else if (cmd.type == CMDtype::getat && cmd.adr >= -1 && cmd.adr <= int64_t(UINT32_MAX)) {
+			std::array<SlewTraceSample, SlewTrace::maxBatch> samples;
+			SlewTraceBatchInfo info;
+			cpp_freertos::CriticalSection::Enter();
+			info = slewTrace.readAfter(cmd.adr, samples);
+			cpp_freertos::CriticalSection::Exit();
+			std::string rows;
+			rows.reserve(info.count * 112);
+			for (uint32_t i = 0; i < info.count; ++i) {
+				const SlewTraceSample& v = samples[i];
+				char line[192];
+				const int n = snprintf(line, sizeof(line),
+					"\\n%lu,%lu,%lu,%lu,%lu,%ld,%ld,%ld,%ld,%ld,%lu,%u,%u,%u",
+					(unsigned long)v.sequence, (unsigned long)v.timeUs,
+					(unsigned long)v.dtRawUs, (unsigned long)v.dtUsedUs,
+					(unsigned long)v.nominalPeriodUs, (long)v.previousOutput,
+					(long)v.requested, (long)v.clippedTarget, (long)v.slewOutput,
+					(long)v.finalOutput, (unsigned long)v.activeRate,
+					(unsigned)v.remainderBefore, (unsigned)v.remainderAfter, (unsigned)v.flags);
+				if (n < 0 || static_cast<size_t>(n) >= sizeof(line)) return CommandStatus::ERR;
+				rows += line;
+			}
+			char header[128];
+			const int n = snprintf(header, sizeof(header), "1,%lu,%lu,%lu,%lu",
+				(unsigned long)info.oldest, (unsigned long)info.newest,
+				(unsigned long)info.gap, (unsigned long)info.count);
+			if (n < 0 || static_cast<size_t>(n) >= sizeof(header)) return CommandStatus::ERR;
+			replies.emplace_back(std::string(header) + rows);
+		} else return CommandStatus::ERR;
+		break;
+	}
+
 	case Axis_commands::degrees:
 		handleGetSetFunc(cmd, replies, degreesOfRotation, &Axis::setDegrees,this);
 //		if (cmd.type == CMDtype::get)
