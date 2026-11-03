@@ -29,6 +29,7 @@ struct AxisDiagnostics {
     uint32_t maxDtUs = 0;
     uint32_t clipped = 0;
     uint32_t limited = 0;
+    uint64_t slewDeltaCounts = 0;
     int32_t effect = 0;
     int32_t requested = 0;
     int32_t clippedTarget = 0;

@@ -100,7 +100,7 @@ enum class Axis_commands : uint32_t{
 	power=0x00,degrees=0x01,esgain,zeroenc,invert,idlespring,axisdamper,enctype,drvtype,
 	pos,maxspeed,maxtorquerate,fxratio,curtorque,curpos,curspd,curaccel,reductionScaler,
 	filterSpeed, filterAccel, filterProfileId,cpr,axisfriction,axisinertia,
-	expo,exposcale,diag,encvel,diag2,slewprofile,slewslot,slewvalid
+	expo,exposcale,diag,encvel,diag2,slewprofile,slewslot,slewvalid,slewmode,slewup,slewdown,slewstats,slewstatsreset
 };
 
 class Axis : public PersistentStorage, public CommandHandler, public ErrorHandler
@@ -238,7 +238,11 @@ private:
 	AxisSlewSettings slewSettings;
 	CommandStatus setSlewProfile(int64_t value);
 	CommandStatus setSlewSlot(int64_t slot, int64_t value);
+	CommandStatus setSlewMode(int64_t value);
+	CommandStatus setSlewUp(int64_t value);
+	CommandStatus setSlewDown(int64_t value);
 	bool commitSlewSettings(const AxisSlewSettings& settings);
+	bool slewStatsResetPending = false;
 	float speedLimiterP = AXIS_SPEEDLIMITER_P;
 	float speedLimiterI = AXIS_SPEEDLIMITER_I;
 
