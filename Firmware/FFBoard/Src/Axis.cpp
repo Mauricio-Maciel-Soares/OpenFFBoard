@@ -934,9 +934,9 @@ bool Axis::updateTorque(int32_t* totalTorque) {
 
 	// Clamp first so the slew-rate limiter works on the torque that can
 	// actually be sent to the motor driver.
-	const bool powerClippedAtTarget = torque != workingDiagnostics.requested;
 	torque = clip<int32_t, int32_t>(torque, -power, power);
 	workingDiagnostics.clippedTarget = torque;
+	const bool powerClippedAtTarget = torque != workingDiagnostics.requested;
 
 	const bool driverReady = drv->motorReady();
 	const bool outputEnabled = driverReady && !control->emergency && !control->usb_disabled;
