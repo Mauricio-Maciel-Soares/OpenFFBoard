@@ -164,6 +164,7 @@ void Axis::registerCommands(){
 	registerCommand("diag", Axis_commands::diag, "FFB diagnostic snapshot (CSV v1)", CMDFLAG_GET);
 	registerCommand("encvel", Axis_commands::encvel, "Use fresh encoder velocity: 0=legacy, 1=prefer estimate (auto-saved)", CMDFLAG_GET | CMDFLAG_SET);
 	registerCommand("diag2", Axis_commands::diag2, "FFB snapshot with measured loop interval statistics (CSV v2)", CMDFLAG_GET);
+	registerCommand("diag3", Axis_commands::diag3, "FFB snapshot with integrated asymmetric slew telemetry (CSV v3)", CMDFLAG_GET);
 	registerCommand("slewprofile", Axis_commands::slewprofile, "Persistent slew selection: 0=custom; 1..3=saved slot", CMDFLAG_GET | CMDFLAG_SET);
 	registerCommand("slewslot", Axis_commands::slewslot, "Persistent rate in counts/ms at slot address 1..3; editing active slot applies rate", CMDFLAG_GETADR | CMDFLAG_SETADR);
 	registerCommand("slewvalid", Axis_commands::slewvalid, "Initialized slew slots bitmask (bits 0..2)", CMDFLAG_GET);
