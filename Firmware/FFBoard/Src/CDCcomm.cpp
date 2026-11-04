@@ -38,12 +38,14 @@ void CDCcomm::cdcFinished(uint8_t itf){
 	}
 }
 
+
 /**
  * Checks if data is remaining in a buffer to be sent
  */
 uint32_t CDCcomm::remainingData(uint8_t itf){
 	return CDCcomm::remainingStrs[itf].size();
 }
+
 
 /**
  * Clears a buffer
@@ -56,6 +58,7 @@ bool CDCcomm::connected(uint8_t itf){
 	return tud_cdc_n_connected(itf);
 }
 
+
 /**
  * Sends a string via CDC
  * If not everything can be sent it will be buffered for later in a new string
@@ -67,17 +70,24 @@ uint16_t CDCcomm::cdcSend(std::string* reply,uint8_t itf){
 	cdcSems[itf].Take();
 	uint32_t bufferRemaining = tud_cdc_n_write_available(itf);
 	uint32_t cdc_sent = tud_cdc_n_write(itf,reply->c_str(), std::min<uint16_t>(reply->length(),bufferRemaining));
-	if(!usb_busy_retry) // We did not retransmit so flush now. otherwise TUD will flush if we were in the callback before
-		tud_cdc_n_write_flush(itf);
 
-	// If we can't write the whole reply copy remainder to send later
+	// If we can't write the whole reply, publish the remainder before flushing.
+	// The flush can complete quickly and invoke tud_cdc_tx_complete_cb on the
+	// USB task; that callback must already see the pending data to retry it.
+	const bool flushNow = !usb_busy_retry;
 	if(cdc_sent < reply->length()){
 		remainingStrs[itf] = reply->substr(cdc_sent);
-		usb_busy_retry = true;
 		remainingStrs[itf].shrink_to_fit();
+		usb_busy_retry = true;
 	}else{
 		usb_busy_retry = false;
 		remainingStrs[itf].clear();
+	}
+
+	// When called from the completion callback TinyUSB flushes after the
+	// callback returns, as in the original retry path.
+	if(flushNow){
+		tud_cdc_n_write_flush(itf);
 	}
 
 	return cdc_sent;
